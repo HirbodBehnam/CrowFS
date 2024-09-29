@@ -1,8 +1,25 @@
 cmake_minimum_required(VERSION 3.29)
-project(CrowFS C)
+project(CrowFSInteractor C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(CrowFS main.c
-        crowfs.c
-        crowfs.h)
+add_library(CrowFS crowfs.c)
+
+add_executable(CrowFSInteractor main.c)
+target_link_libraries(CrowFSInteractor PRIVATE CrowFS)
+
+add_executable(CrowFSTests crowfs_test.c)
+target_link_libraries(CrowFSTests PRIVATE CrowFS)
+enable_testing()
+add_test(NAME crowfs_tests_open_file COMMAND $<TARGET_FILE:CrowFSTests> 1)
+add_test(NAME crowfs_tests_create_folder COMMAND $<TARGET_FILE:CrowFSTests> 2)
+add_test(NAME crowfs_tests_stat COMMAND $<TARGET_FILE:CrowFSTests> 3)
+add_test(NAME crowfs_tests_read_write_file_small COMMAND $<TARGET_FILE:CrowFSTests> 4)
+add_test(NAME crowfs_tests_read_write_file_direct COMMAND $<TARGET_FILE:CrowFSTests> 5)
+add_test(NAME crowfs_tests_read_write_file_indirect COMMAND $<TARGET_FILE:CrowFSTests> 6)
+add_test(NAME crowfs_tests_write_file_full COMMAND $<TARGET_FILE:CrowFSTests> 7)
+add_test(NAME crowfs_tests_write_folder_full COMMAND $<TARGET_FILE:CrowFSTests> 8)
+add_test(NAME crowfs_tests_delete_file COMMAND $<TARGET_FILE:CrowFSTests> 9)
+add_test(NAME crowfs_tests_delete_folder COMMAND $<TARGET_FILE:CrowFSTests> 10)
+add_test(NAME crowfs_tests_move COMMAND $<TARGET_FILE:CrowFSTests> 11)
+add_test(NAME crowfs_tests_read_dir COMMAND $<TARGET_FILE:CrowFSTests> 12)

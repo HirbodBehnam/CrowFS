@@ -25,7 +25,7 @@
  * @param str The path
  * @return Length of next part in path
  */
-size_t path_next_part_len(const char *str) {
+static size_t path_next_part_len(const char *str) {
     size_t len = 0;
     while (str[len] != '\0' && str[len] != '/')
         len++;
@@ -39,7 +39,7 @@ size_t path_next_part_len(const char *str) {
  * @param str The path to check
  * @return True if last part, otherwise false
  */
-bool path_last_part(const char *str) {
+static bool path_last_part(const char *str) {
     size_t current_len = path_next_part_len(str);
     if (str[current_len] == '\0') // null terminator is always the last part
         return true;
@@ -52,7 +52,7 @@ bool path_last_part(const char *str) {
  * @param bitmap The bitmap
  * @param index The index in range [0, CROWFS_BLOCK_SIZE*8]
  */
-void bitmap_set(struct CrowFSBitmapBlock *bitmap, uint32_t index) {
+static void bitmap_set(struct CrowFSBitmapBlock *bitmap, uint32_t index) {
     size_t char_index = index / 8;
     uint32_t bit_index = index % 8;
     if (char_index >= CROWFS_BLOCK_SIZE) // out of bounds
@@ -65,7 +65,7 @@ void bitmap_set(struct CrowFSBitmapBlock *bitmap, uint32_t index) {
  * @param bitmap The bitmap
  * @param index The index in range [0, CROWFS_BLOCK_SIZE*8]
  */
-void bitmap_clear(struct CrowFSBitmapBlock *bitmap, uint32_t index) {
+static void bitmap_clear(struct CrowFSBitmapBlock *bitmap, uint32_t index) {
     size_t char_index = index / 8;
     uint32_t bit_index = index % 8;
     if (char_index >= CROWFS_BLOCK_SIZE) // out of bounds
@@ -78,7 +78,7 @@ void bitmap_clear(struct CrowFSBitmapBlock *bitmap, uint32_t index) {
  * @param fs The filesystem
  * @return The dnode number or zero if no free dnode is available
  */
-uint32_t block_alloc(struct CrowFS *fs) {
+static uint32_t block_alloc(struct CrowFS *fs) {
     uint32_t allocated_dnode = 0;
     union CrowFSBlock *block = fs->allocate_mem_block();
     // Look for free blocks
@@ -90,7 +90,7 @@ uint32_t block_alloc(struct CrowFS *fs) {
         for (uint32_t i = 0; i < CROWFS_BLOCK_SIZE; i++)
             if (block->bitmap.bitmap[i] != 0) {
                 allocated_dnode =
-                        free_block * CROWOS_BITSET_COVERED_BLOCKS + i * 8 + __builtin_ctz(block->bitmap.bitmap[i]);
+                        free_block * CROWFS_BITSET_COVERED_BLOCKS + i * 8 + __builtin_ctz(block->bitmap.bitmap[i]);
                 break;
             }
         if (allocated_dnode != 0)
@@ -104,7 +104,7 @@ uint32_t block_alloc(struct CrowFS *fs) {
         allocated_dnode = 0;
         goto end;
     }
-    bitmap_clear(&block->bitmap, allocated_dnode % CROWOS_BITSET_COVERED_BLOCKS);
+    bitmap_clear(&block->bitmap, allocated_dnode % CROWFS_BITSET_COVERED_BLOCKS);
     if (fs->write_block(allocated_dnode / 8 / CROWFS_BLOCK_SIZE + 1 + 1, block)) {
         allocated_dnode = 0;
         goto end;
@@ -122,7 +122,7 @@ uint32_t block_alloc(struct CrowFS *fs) {
  * @param from The block index to check
  * @return The block index if successful or 0 if disk is full
  */
-uint32_t get_or_allocate_block(struct CrowFS *fs, uint32_t *from) {
+static uint32_t get_or_allocate_block(struct CrowFS *fs, uint32_t *from) {
     uint32_t content_block = *from;
     if (content_block == 0) {
         content_block = block_alloc(fs);
@@ -137,12 +137,12 @@ uint32_t get_or_allocate_block(struct CrowFS *fs, uint32_t *from) {
  * Frees an allocated block
  * @param dnode The dnode or block number
  */
-void block_free(struct CrowFS *fs, uint32_t dnode) {
+static void block_free(struct CrowFS *fs, uint32_t dnode) {
     union CrowFSBlock *block = fs->allocate_mem_block();
     if (fs->read_block(dnode / 8 / CROWFS_BLOCK_SIZE + 1 + 1, block))
         goto end;
 
-    bitmap_set(&block->bitmap, dnode % CROWOS_BITSET_COVERED_BLOCKS);
+    bitmap_set(&block->bitmap, dnode % CROWFS_BITSET_COVERED_BLOCKS);
     fs->write_block(dnode / 8 / CROWFS_BLOCK_SIZE + 1 + 1, block);
 
     end:
@@ -154,7 +154,7 @@ void block_free(struct CrowFS *fs, uint32_t dnode) {
  * @param dir The folder to count
  * @return The number of files or folder in the given directory
  */
-uint32_t folder_content_count(const struct CrowFSDirectoryBlock *dir) {
+static uint32_t folder_content_count(const struct CrowFSDirectoryBlock *dir) {
     uint32_t count;
     for (count = 0; count < CROWFS_MAX_DIR_CONTENTS; count++)
         if (dir->content_dnodes[count] == 0)
@@ -169,7 +169,7 @@ uint32_t folder_content_count(const struct CrowFSDirectoryBlock *dir) {
  * @param target_dnode The target dnode to remove from the directory
  * @return 0 if target is removed, 1 if the target is not found
  */
-int folder_remove_content(struct CrowFSDirectoryBlock *dir, uint32_t target_dnode) {
+static int folder_remove_content(struct CrowFSDirectoryBlock *dir, uint32_t target_dnode) {
     int dnode_index = -1;
     for (int i = 0; i < CROWFS_MAX_DIR_CONTENTS; i++)
         if (dir->content_dnodes[i] == target_dnode) {
@@ -179,7 +179,7 @@ int folder_remove_content(struct CrowFSDirectoryBlock *dir, uint32_t target_dnod
     if (dnode_index == -1)
         return 1; // what?
     int last_index = (int) (folder_content_count(dir) - 1);
-    if (last_index == 1) { // only one content so remove it
+    if (last_index == 0) { // only one content so remove it
         dir->content_dnodes[0] = 0;
     } else if (last_index == dnode_index) { // dnode is last. Replace it
         dir->content_dnodes[last_index] = 0;
@@ -219,7 +219,7 @@ int crowfs_new(struct CrowFS *fs) {
     TRY_IO(fs->write_block(SUPERBLOCK_DNODE, block))
     // Calculate the free bitmap size
     fs->free_bitmap_blocks =
-            (block->superblock.blocks + CROWOS_BITSET_COVERED_BLOCKS - 1) / CROWOS_BITSET_COVERED_BLOCKS;
+            (block->superblock.blocks + CROWFS_BITSET_COVERED_BLOCKS - 1) / CROWFS_BITSET_COVERED_BLOCKS;
     if (block->superblock.blocks <= 3 + fs->free_bitmap_blocks) {
         result = CROWFS_ERR_TOO_SMALL;
         goto end;
@@ -241,7 +241,7 @@ int crowfs_new(struct CrowFS *fs) {
     if (fs->free_bitmap_blocks != 1)
         memset(block->bitmap.bitmap, 0xFF, sizeof(block->bitmap.bitmap));
 
-    for (uint32_t last_block_id = CROWOS_BITSET_COVERED_BLOCKS * fs->free_bitmap_blocks - 1;
+    for (uint32_t last_block_id = CROWFS_BITSET_COVERED_BLOCKS * fs->free_bitmap_blocks - 1;
          last_block_id >= fs->superblock.blocks;
          last_block_id--)
         bitmap_clear(&block->bitmap, last_block_id);
@@ -278,7 +278,7 @@ int crowfs_init(struct CrowFS *fs) {
     fs->superblock = block->superblock;
     // Calculate the root dnode index
     fs->free_bitmap_blocks =
-            (block->superblock.blocks + CROWOS_BITSET_COVERED_BLOCKS - 1) / CROWOS_BITSET_COVERED_BLOCKS;
+            (block->superblock.blocks + CROWFS_BITSET_COVERED_BLOCKS - 1) / CROWFS_BITSET_COVERED_BLOCKS;
     fs->root_dnode = 1 + 1 + fs->free_bitmap_blocks;
 
     end:
@@ -348,8 +348,8 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
                     memset(temp_dnode->file.direct_blocks, 0, sizeof(temp_dnode->file.direct_blocks));
                 }
                 // Write to disk
-                TRY_IO(fs->write_block(*parent_dnode, current_dnode));
-                TRY_IO(fs->write_block(*dnode, temp_dnode));
+                TRY_IO(fs->write_block(*parent_dnode, current_dnode))
+                TRY_IO(fs->write_block(*dnode, temp_dnode))
                 break;
             } else { // well shit.
                 result = CROWFS_ERR_NOT_FOUND;
@@ -367,7 +367,7 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
             break;
         } else {
             // Traverse more into the directories...
-            TRY_IO(fs->read_block(dnode_search_result, current_dnode));
+            TRY_IO(fs->read_block(dnode_search_result, current_dnode))
             if (current_dnode->header.type != CROWFS_ENTITY_FOLDER) {
                 // We found a file instead of a folder...
                 result = CROWFS_ERR_NOT_FOUND;
@@ -396,11 +396,11 @@ int crowfs_write(struct CrowFS *fs, uint32_t dnode, const char *data, size_t siz
         goto end;
     }
     // Will we pass the size limit of files?
-    if (size + offset > CROWOS_MAX_FILESIZE) {
+    if (size + offset > CROWFS_MAX_FILESIZE) {
         result = CROWFS_ERR_LIMIT;
         goto end;
     }
-    // File growing. Allocate empty dnodes
+    // TODO: File growing. Allocate empty dnodes
     if (offset > dnode_block->file.size) {
         result = CROWFS_ERR_ARGUMENT;
         goto end;
@@ -535,14 +535,12 @@ int crowfs_read_dir(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat, 
 
 int crowfs_delete(struct CrowFS *fs, uint32_t dnode, uint32_t parent_dnode) {
     int result = CROWFS_OK;
+    if (dnode == fs->root_dnode) // Bruh
+        return CROWFS_ERR_ARGUMENT;
     // Read the dnode block at first
     union CrowFSBlock *dnode_block = fs->allocate_mem_block(),
             *indirect_block = fs->allocate_mem_block();
     TRY_IO(fs->read_block(dnode, dnode_block))
-    if (dnode_block->header.type != CROWFS_ENTITY_FOLDER) { // this is a folder right?
-        result = CROWFS_ERR_ARGUMENT;
-        goto end;
-    }
     // What is this entity?
     switch (dnode_block->header.type) {
         case CROWFS_ENTITY_FILE:

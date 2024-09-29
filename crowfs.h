@@ -28,11 +28,11 @@
 /**
  * Maximum file size in CrowFS
  */
-#define CROWOS_MAX_FILESIZE (CROWFS_BLOCK_SIZE*(1024+CROWFS_DIRECT_BLOCKS))
+#define CROWFS_MAX_FILESIZE (CROWFS_BLOCK_SIZE*(1024+CROWFS_DIRECT_BLOCKS))
 /**
  * Number of blocks that a single bitset can contain
  */
-#define CROWOS_BITSET_COVERED_BLOCKS (CROWFS_BLOCK_SIZE * 8)
+#define CROWFS_BITSET_COVERED_BLOCKS (CROWFS_BLOCK_SIZE * 8)
 
 /**
  * Structure of the super block for CrowFS
