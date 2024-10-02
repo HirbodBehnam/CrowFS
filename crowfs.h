@@ -131,6 +131,8 @@ struct CrowFSStat {
     int64_t creation_date;
     // (Files only) the file size
     uint32_t size;
+    // dnode of this file/folder
+    uint32_t dnode;
 };
 
 /**
@@ -325,3 +327,10 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat);
  * @return
  */
 int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t new_parent);
+
+/**
+ * Counts the free blocks in a filesystem
+ * @param fs The filesystem to count the free blocks in
+ * @return The number of free blocks
+ */
+uint32_t crowfs_free_blocks(struct CrowFS *fs);

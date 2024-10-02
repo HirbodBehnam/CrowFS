@@ -156,7 +156,8 @@ static void block_free(struct CrowFS *fs, uint32_t dnode) {
  * @param name The name of the file/folder to search
  * @return 0 if not found, the dnode of the block if found
  */
-static uint32_t folder_lookup_name(struct CrowFS *fs, const struct CrowFSDirectoryBlock *dir, const char *name, size_t name_len) {
+static uint32_t
+folder_lookup_name(struct CrowFS *fs, const struct CrowFSDirectoryBlock *dir, const char *name, size_t name_len) {
     // Allocate block for dnodes
     union CrowFSBlock *temp_dnode = fs->allocate_mem_block();
     uint32_t result = 0;
@@ -172,7 +173,7 @@ static uint32_t folder_lookup_name(struct CrowFS *fs, const struct CrowFSDirecto
             // Matched!
             result = dir->content_dnodes[i];
             break;
-            }
+        }
         // Continue searching...
     }
     // Deallocate
@@ -556,8 +557,7 @@ int crowfs_read_dir(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat, 
         goto end;
     }
     // Get the stats of the dnode
-    fs->free_mem_block(dnode_block);
-    return crowfs_stat(fs, requested_dnode, stat);
+    result = crowfs_stat(fs, requested_dnode, stat);
 
     end:
     fs->free_mem_block(dnode_block);
@@ -640,6 +640,7 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat) {
     }
 
     end:
+    stat->dnode = dnode;
     fs->free_mem_block(dnode_block);
     return result;
 }
@@ -647,7 +648,7 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat) {
 int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t new_parent) {
     int result = CROWFS_OK;
     union CrowFSBlock *dnode_block = fs->allocate_mem_block(),
-        *file_dnode = fs->allocate_mem_block();
+            *file_dnode = fs->allocate_mem_block();
     TRY_IO(fs->read_block(dnode, file_dnode))
     // Add to new parent
     TRY_IO(fs->read_block(new_parent, dnode_block))
@@ -656,9 +657,10 @@ int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t
         goto end;
     }
     // Replace the old file if needed (which is just a delete function)
-    uint32_t to_delete_dnode = folder_lookup_name(fs, &dnode_block->folder, file_dnode->header.name, strlen(file_dnode->header.name));
+    uint32_t to_delete_dnode = folder_lookup_name(fs, &dnode_block->folder, file_dnode->header.name,
+                                                  strlen(file_dnode->header.name));
     if (to_delete_dnode != 0) {
-        int delete_result = crowfs_delete(fs, to_delete_dnode, new_parent) ;
+        int delete_result = crowfs_delete(fs, to_delete_dnode, new_parent);
         if (delete_result != CROWFS_OK) {
             result = delete_result;
             goto end;
@@ -690,4 +692,17 @@ int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t
     fs->free_mem_block(dnode_block);
     fs->free_mem_block(file_dnode);
     return result;
+}
+
+uint32_t crowfs_free_blocks(struct CrowFS *fs) {
+    uint32_t free_blocks = 0;
+    union CrowFSBlock *bitmap = fs->allocate_mem_block();
+    for (uint32_t block = 0; block < fs->free_bitmap_blocks; block++) {
+        if (fs->read_block(block + 2, bitmap) != 0)
+            continue; // just skip this block
+        for (int i = 0; i < sizeof(bitmap->bitmap.bitmap) / sizeof(bitmap->bitmap.bitmap[0]); i++)
+            free_blocks += __builtin_popcount(bitmap->bitmap.bitmap[i]);
+    }
+    fs->free_mem_block(bitmap);
+    return free_blocks;
 }
