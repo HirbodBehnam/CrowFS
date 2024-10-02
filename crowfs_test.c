@@ -44,11 +44,11 @@ void mem_fs_init(struct CrowFS *fs, size_t size) {
     memory_buffer.buffer = calloc(size, sizeof(char));
     memory_buffer.size = size;
     fs->allocate_mem_block = std_allocate_mem_block,
-    fs->free_mem_block = std_free_mem_block,
-    fs->write_block = mem_write_block,
-    fs->read_block = mem_read_block,
-    fs->total_blocks = mem_total_blocks,
-    fs->current_date = std_current_date,
+            fs->free_mem_block = std_free_mem_block,
+            fs->write_block = mem_write_block,
+            fs->read_block = mem_read_block,
+            fs->total_blocks = mem_total_blocks,
+            fs->current_date = std_current_date,
             crowfs_new(fs);
 }
 
@@ -75,6 +75,8 @@ int test_delete_folder();
 int test_move();
 
 int test_read_dir();
+
+int test_disk_full();
 
 int main(int argc, char **argv) {
     if (argc != 2) {
@@ -107,6 +109,8 @@ int main(int argc, char **argv) {
             return test_move();
         case 12:
             return test_read_dir();
+        case 13:
+            return test_disk_full();
         default:
             puts("invalid test number");
             return 1;
@@ -157,11 +161,11 @@ int test_create_folder() {
     assert(crowfs_open(&fs, "/another dir/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     assert(fd_parent == fd_temp);
     assert(crowfs_open(&fs, "/not found/directory/welp", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
-           CROWFS_ERR_NOT_FOUND);
+        CROWFS_ERR_NOT_FOUND);
     assert(crowfs_open(&fs, "/hello/file/bro/file", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
-           CROWFS_ERR_NOT_FOUND);
+        CROWFS_ERR_NOT_FOUND);
     assert(crowfs_open(&fs, "/hello/file/nope", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
-           CROWFS_ERR_NOT_FOUND);
+        CROWFS_ERR_NOT_FOUND);
     return 0;
 }
 
@@ -187,13 +191,61 @@ int test_stat() {
     // Check each file/folder
     struct CrowFSStat got, expected;
     assert(crowfs_stat(&fs, fs.root_dnode, &got) == CROWFS_OK);
-    expected = (struct CrowFSStat) {
-            .type = CROWFS_ENTITY_FOLDER,
-            .size = 3,
-            .name = "/",
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FOLDER,
+        .size = 3,
+        .name = "/",
     };
     assert(compare_stats(got, expected));
-    // TODO: more...
+    assert(crowfs_stat(&fs, folder1, &got) == CROWFS_OK);
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FOLDER,
+        .size = 1,
+        .name = "folder1",
+    };
+    assert(compare_stats(got, expected));
+    assert(crowfs_stat(&fs, folder2, &got) == CROWFS_OK);
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FOLDER,
+        .size = 3,
+        .name = "folder2",
+    };
+    assert(compare_stats(got, expected));
+    assert(crowfs_stat(&fs, file, &got) == CROWFS_OK);
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FILE,
+        .size = 0,
+        .name = "file",
+    };
+    assert(compare_stats(got, expected));
+    assert(crowfs_stat(&fs, folder1_file, &got) == CROWFS_OK);
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FILE,
+        .size = 1234,
+        .name = "file",
+    };
+    assert(compare_stats(got, expected));
+    assert(crowfs_stat(&fs, folder2_file1, &got) == CROWFS_OK);
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FILE,
+        .size = 10,
+        .name = "file1",
+    };
+    assert(compare_stats(got, expected));
+    assert(crowfs_stat(&fs, folder2_file2, &got) == CROWFS_OK);
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FILE,
+        .size = sizeof(dummy_buffer),
+        .name = "file2",
+    };
+    assert(compare_stats(got, expected));
+    assert(crowfs_stat(&fs, folder2_file3, &got) == CROWFS_OK);
+    expected = (struct CrowFSStat){
+        .type = CROWFS_ENTITY_FILE,
+        .size = 0,
+        .name = "file3",
+    };
+    assert(compare_stats(got, expected));
     return 0;
 }
 
@@ -206,7 +258,7 @@ int test_read_write_file_small() {
     assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     assert(crowfs_write(&fs, fd, to_write_buffer, sizeof(to_write_buffer) - 1, 0) == CROWFS_OK);
     assert(crowfs_write(&fs, fd, to_write_buffer, sizeof(to_write_buffer) - 1, sizeof(to_write_buffer) - 1) ==
-           CROWFS_OK);
+        CROWFS_OK);
     assert(crowfs_write(&fs, fd, to_write_buffer, sizeof(to_write_buffer) - 1, 100) == CROWFS_ERR_ARGUMENT);
 
     // This should have not inflated the file
@@ -234,19 +286,99 @@ int test_read_write_file_small() {
 }
 
 int test_read_write_file_direct() {
-    assert(0);
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024 * 16);
+    uint32_t fd, fd_parent;
+    assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    char block_buffer[256];
+    for (int i = 0; i < sizeof(block_buffer); i++)
+        block_buffer[i] = (char) i;
+    // Fill all direct blocks
+    for (int i = 0; i < CROWFS_DIRECT_BLOCKS * (CROWFS_BLOCK_SIZE / sizeof(block_buffer)); i++)
+        assert(crowfs_write(&fs, fd, block_buffer, sizeof(block_buffer), i * sizeof(block_buffer)) == CROWFS_OK);
+    // Read all back
+    for (int i = 0; i < CROWFS_DIRECT_BLOCKS * (CROWFS_BLOCK_SIZE / sizeof(block_buffer)); i++) {
+        char read_buffer[256];
+        assert(crowfs_read(&fs, fd, read_buffer, sizeof(read_buffer), i * sizeof(read_buffer)) == sizeof(block_buffer));
+        assert(memcmp(block_buffer, read_buffer, sizeof(read_buffer)) == 0);
+    }
+    return 0;
 }
 
 int test_read_write_file_indirect() {
-    assert(0);
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024 * 16);
+    uint32_t fd, fd_parent;
+    assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    char block_buffer[256];
+    for (int i = 0; i < sizeof(block_buffer); i++)
+        block_buffer[i] = (char) i;
+    // Fill all direct blocks
+    for (int i = 0; i < (CROWFS_DIRECT_BLOCKS + CROWFS_INDIRECT_BLOCK_COUNT) * (
+                        CROWFS_BLOCK_SIZE / sizeof(block_buffer)); i++)
+        assert(crowfs_write(&fs, fd, block_buffer, sizeof(block_buffer), i * sizeof(block_buffer)) == CROWFS_OK);
+    // Read all back
+    for (int i = 0; i < (CROWFS_DIRECT_BLOCKS + CROWFS_INDIRECT_BLOCK_COUNT) * (
+                        CROWFS_BLOCK_SIZE / sizeof(block_buffer)); i++) {
+        char read_buffer[256];
+        assert(crowfs_read(&fs, fd, read_buffer, sizeof(read_buffer), i * sizeof(read_buffer)) == sizeof(block_buffer));
+        assert(memcmp(block_buffer, read_buffer, sizeof(read_buffer)) == 0);
+    }
+    return 0;
 }
 
 int test_write_file_full() {
-    assert(0);
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024 * 16);
+    uint32_t fd, fd_parent;
+    assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    char block_buffer[256];
+    for (int i = 0; i < sizeof(block_buffer); i++)
+        block_buffer[i] = (char) i;
+    // Fill all direct blocks
+    const uint32_t last_block = (CROWFS_DIRECT_BLOCKS + CROWFS_INDIRECT_BLOCK_COUNT) * (
+                                    CROWFS_BLOCK_SIZE / sizeof(block_buffer));
+    for (int i = 0; i < last_block; i++)
+        assert(crowfs_write(&fs, fd, block_buffer, sizeof(block_buffer), i * sizeof(block_buffer)) == CROWFS_OK);
+    assert(
+        crowfs_write(&fs, fd, block_buffer, sizeof(block_buffer), last_block * sizeof(block_buffer)) ==
+        CROWFS_ERR_LIMIT);
+    // Read all back
+    for (int i = 0; i < (CROWFS_DIRECT_BLOCKS + CROWFS_INDIRECT_BLOCK_COUNT) * (
+                        CROWFS_BLOCK_SIZE / sizeof(block_buffer)); i++) {
+        char read_buffer[256];
+        assert(crowfs_read(&fs, fd, read_buffer, sizeof(read_buffer), i * sizeof(read_buffer)) == sizeof(block_buffer));
+        assert(memcmp(block_buffer, read_buffer, sizeof(read_buffer)) == 0);
+    }
+    assert(
+        crowfs_read(&fs, fd, block_buffer, sizeof(block_buffer), last_block * sizeof(block_buffer)) == 0);
+    return 0;
 }
 
 int test_write_folder_full() {
-    assert(0);
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024 * 16);
+    uint32_t fd, fd_parent;
+    // Write files to fill root
+    for (int i = 0; i < CROWFS_MAX_DIR_CONTENTS; i++) {
+        char name_buffer[16];
+        sprintf(name_buffer, "/file%d", i);
+        assert(crowfs_open(&fs, name_buffer, &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    }
+    assert(crowfs_open(&fs, "/abkir", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_LIMIT);
+    assert(crowfs_open(&fs, "/abkir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_ERR_LIMIT);
+    // Delete last file and create a folder
+    assert(crowfs_delete(&fs, fd, fs.root_dnode) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    // Fill that folder
+    for (int i = 0; i < CROWFS_MAX_DIR_CONTENTS; i++) {
+        char name_buffer[32];
+        sprintf(name_buffer, "/folder/file%d", i);
+        assert(crowfs_open(&fs, name_buffer, &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    }
+    assert(crowfs_open(&fs, "/folder/abkir", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_LIMIT);
+    assert(crowfs_open(&fs, "/folder/abkir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_ERR_LIMIT);
+    return 0;
 }
 
 int test_delete_file() {
@@ -301,9 +433,51 @@ int test_delete_folder() {
 }
 
 int test_move() {
-    assert(false);
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024);
+    uint32_t folder1, folder2, folder3, file1, file2, file3, temp1, temp2, new_file1;
+    assert(crowfs_open(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder3", &folder3, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file1", &file1, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file2", &file2, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder3/file3", &file3, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+
+    // Move one file
+    assert(crowfs_move(&fs, file1, folder1, folder2) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == file1);
+    assert(temp2 == folder2);
+    assert(crowfs_move(&fs, file1, folder2, folder1) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == file1);
+    assert(temp2 == folder1);
+
+    // Move folder
+    assert(crowfs_move(&fs, folder2, fs.root_dnode, folder3) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder3/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == file2);
+    assert(temp2 == folder2);
+    assert(crowfs_open(&fs, "/folder3/folder2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == folder2);
+    assert(temp2 == folder3);
+
+    // Replace file
+    assert(crowfs_open(&fs, "/file1", &temp1, &temp2, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_move(&fs, temp1, fs.root_dnode, folder1) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file1", &new_file1, &temp2, 0) == CROWFS_OK);
+    assert(temp2 == folder1);
+    assert(new_file1 != file1);
+    return 0;
 }
 
 int test_read_dir() {
+    assert(false);
+}
+
+int test_disk_full() {
     assert(false);
 }

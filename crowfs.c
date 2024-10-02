@@ -150,6 +150,37 @@ static void block_free(struct CrowFS *fs, uint32_t dnode) {
 }
 
 /**
+ * Look for a content in this folder by the given name
+ * @param fs The file system to search in
+ * @param dir The given folder to search in
+ * @param name The name of the file/folder to search
+ * @return 0 if not found, the dnode of the block if found
+ */
+static uint32_t folder_lookup_name(struct CrowFS *fs, const struct CrowFSDirectoryBlock *dir, const char *name, size_t name_len) {
+    // Allocate block for dnodes
+    union CrowFSBlock *temp_dnode = fs->allocate_mem_block();
+    uint32_t result = 0;
+    for (int i = 0; i < CROWFS_MAX_DIR_CONTENTS; i++) {
+        if (dir->content_dnodes[i] == 0) // File/Folder not found
+            break;
+        // Read the dnode
+        if (fs->read_block(dir->content_dnodes[i], temp_dnode) != 0)
+            break; // IO Error
+        // Compare filenames
+        if (memcmp(temp_dnode->header.name, name, name_len) == 0 &&
+            temp_dnode->header.name[name_len] == '\0') {
+            // Matched!
+            result = dir->content_dnodes[i];
+            break;
+            }
+        // Continue searching...
+    }
+    // Deallocate
+    fs->free_mem_block(temp_dnode);
+    return result;
+}
+
+/**
  * Counts the number of files or folders inside a folder
  * @param dir The folder to count
  * @return The number of files or folder in the given directory
@@ -615,13 +646,26 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat) {
 
 int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t new_parent) {
     int result = CROWFS_OK;
-    union CrowFSBlock *dnode_block = fs->allocate_mem_block();
+    union CrowFSBlock *dnode_block = fs->allocate_mem_block(),
+        *file_dnode = fs->allocate_mem_block();
+    TRY_IO(fs->read_block(dnode, file_dnode))
     // Add to new parent
     TRY_IO(fs->read_block(new_parent, dnode_block))
     if (dnode_block->header.type != CROWFS_ENTITY_FOLDER) {
         result = CROWFS_ERR_ARGUMENT;
         goto end;
     }
+    // Replace the old file if needed (which is just a delete function)
+    uint32_t to_delete_dnode = folder_lookup_name(fs, &dnode_block->folder, file_dnode->header.name, strlen(file_dnode->header.name));
+    if (to_delete_dnode != 0) {
+        int delete_result = crowfs_delete(fs, to_delete_dnode, new_parent) ;
+        if (delete_result != CROWFS_OK) {
+            result = delete_result;
+            goto end;
+        }
+        TRY_IO(fs->read_block(new_parent, dnode_block))
+    }
+    // Add the file to directory
     uint32_t new_dnode_index = folder_content_count(&dnode_block->folder);
     if (new_dnode_index == CROWFS_MAX_DIR_CONTENTS) {
         result = CROWFS_ERR_LIMIT; // we have reached the maximum nodes for this directory
@@ -644,5 +688,6 @@ int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t
 
     end:
     fs->free_mem_block(dnode_block);
+    fs->free_mem_block(file_dnode);
     return result;
 }
