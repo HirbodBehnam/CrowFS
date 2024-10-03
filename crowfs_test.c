@@ -53,71 +53,6 @@ void mem_fs_init(struct CrowFS *fs, size_t size) {
     crowfs_new(fs);
 }
 
-int test_open_file();
-
-int test_create_folder();
-
-int test_stat();
-
-int test_read_write_file_small();
-
-int test_read_write_file_direct();
-
-int test_read_write_file_indirect();
-
-int test_write_file_full();
-
-int test_write_folder_full();
-
-int test_delete_file();
-
-int test_delete_folder();
-
-int test_move();
-
-int test_read_dir();
-
-int test_disk_full();
-
-int main(int argc, char **argv) {
-    if (argc != 2) {
-        puts("Enter the test number as argument");
-        return 1;
-    }
-    long test_number = strtol(argv[1], NULL, 10);
-    switch (test_number) {
-        case 1:
-            return test_open_file();
-        case 2:
-            return test_create_folder();
-        case 3:
-            return test_stat();
-        case 4:
-            return test_read_write_file_small();
-        case 5:
-            return test_read_write_file_direct();
-        case 6:
-            return test_read_write_file_indirect();
-        case 7:
-            return test_write_file_full();
-        case 8:
-            return test_write_folder_full();
-        case 9:
-            return test_delete_file();
-        case 10:
-            return test_delete_folder();
-        case 11:
-            return test_move();
-        case 12:
-            return test_read_dir();
-        case 13:
-            return test_disk_full();
-        default:
-            puts("invalid test number");
-            return 1;
-    }
-}
-
 int test_open_file() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024);
@@ -445,19 +380,19 @@ int test_move() {
     assert(crowfs_open(&fs, "/folder3/file3", &file3, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
 
     // Move one file
-    assert(crowfs_move(&fs, file1, folder1, folder2) == CROWFS_OK);
+    assert(crowfs_move(&fs, file1, folder1, folder2, NULL) == CROWFS_OK);
     assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
     assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == file1);
     assert(temp2 == folder2);
-    assert(crowfs_move(&fs, file1, folder2, folder1) == CROWFS_OK);
+    assert(crowfs_move(&fs, file1, folder2, folder1, NULL) == CROWFS_OK);
     assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
     assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == file1);
     assert(temp2 == folder1);
 
     // Move folder
-    assert(crowfs_move(&fs, folder2, fs.root_dnode, folder3) == CROWFS_OK);
+    assert(crowfs_move(&fs, folder2, fs.root_dnode, folder3, NULL) == CROWFS_OK);
     assert(crowfs_open(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
     assert(crowfs_open(&fs, "/folder3/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == file2);
@@ -468,12 +403,10 @@ int test_move() {
 
     // Replace file
     assert(crowfs_open(&fs, "/file1", &temp1, &temp2, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_move(&fs, temp1, fs.root_dnode, folder1) == CROWFS_OK);
+    assert(crowfs_move(&fs, temp1, fs.root_dnode, folder1, NULL) == CROWFS_OK);
     assert(crowfs_open(&fs, "/folder1/file1", &new_file1, &temp2, 0) == CROWFS_OK);
     assert(temp2 == folder1);
     assert(new_file1 != file1);
-
-    // TODO: Add rename tests
     return 0;
 }
 
@@ -619,8 +552,150 @@ int test_disk_full() {
     for (uint32_t i = 0; i < free_blocks; i++)
         assert(crowfs_write(&fs, file, block_buffer, sizeof(block_buffer), i * CROWFS_BLOCK_SIZE) == CROWFS_OK);
     assert(crowfs_open(&fs, "/full", &temp2, &temp1, CROWFS_O_CREATE) == CROWFS_ERR_FULL);
-    assert(crowfs_write(&fs, file, block_buffer, sizeof(block_buffer), CROWFS_BLOCK_SIZE * free_blocks) == CROWFS_ERR_FULL);
+    assert(crowfs_write(&fs, file, block_buffer, sizeof(block_buffer), CROWFS_BLOCK_SIZE * free_blocks) ==
+           CROWFS_ERR_FULL);
     assert(crowfs_stat(&fs, file, &stat) == CROWFS_OK);
     assert(stat.size == free_blocks * CROWFS_BLOCK_SIZE);
     return 0;
+}
+
+int test_rename() {
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024);
+    struct CrowFSStat stat;
+    uint32_t folder1, folder2, folder1_files[2], folder2_files[2], temp1, temp2;
+    assert(crowfs_open(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file1", &folder1_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file2", &folder1_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file1", &folder2_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file2", &folder2_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+
+    // Rename file
+    assert(crowfs_move(&fs, folder1_files[0], folder1, folder1, "new_file") == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder1/new_file", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == folder1_files[0]);
+    assert(temp2 == folder1);
+    assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
+    assert(strcmp(stat.name, "new_file") == 0);
+
+    // Replace file
+    uint32_t free_blocks_before = crowfs_free_blocks(&fs);
+    assert(crowfs_move(&fs, folder2_files[0], folder2, folder2, "file2") == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == folder2_files[0]);
+    assert(temp2 == folder2);
+    assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
+    assert(strcmp(stat.name, "file2") == 0);
+    assert(crowfs_free_blocks(&fs) - free_blocks_before == 1);
+
+    // Do nothing
+    assert(crowfs_move(&fs, folder2_files[0], folder2, folder2, NULL) == CROWFS_OK);
+    assert(crowfs_move(&fs, folder2_files[0], folder2, folder2, "file2") == CROWFS_OK);
+
+    // Replace full folder
+    assert(crowfs_move(&fs, folder1, fs.root_dnode, fs.root_dnode, "folder2") == CROWFS_ERR_NOT_EMPTY);
+
+    // Replace empty folder
+    assert(crowfs_delete(&fs, folder2_files[0], folder2) == CROWFS_OK);
+    free_blocks_before = crowfs_free_blocks(&fs);
+    assert(crowfs_move(&fs, folder1, fs.root_dnode, fs.root_dnode, "folder2") == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == folder1);
+    assert(temp2 == fs.root_dnode);
+    assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
+    assert(strcmp(stat.name, "folder2") == 0);
+    assert(crowfs_free_blocks(&fs) - free_blocks_before == 1);
+    return 0;
+}
+
+int test_rename_move() {
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024);
+    struct CrowFSStat stat;
+    uint32_t folder1, folder2, folder1_files[2], folder2_files[2], temp1, temp2;
+    assert(crowfs_open(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file1", &folder1_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file2", &folder1_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file1", &folder2_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2/file2", &folder2_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+
+    // Move as new file
+    assert(crowfs_move(&fs, folder1_files[0], folder1, folder2, "new_file") == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder2/new_file", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == folder1_files[0]);
+    assert(temp2 == folder2);
+    assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
+    assert(strcmp(stat.name, "new_file") == 0);
+
+    // Move and replace
+    uint32_t free_blocks_before = crowfs_free_blocks(&fs);
+    assert(crowfs_move(&fs, folder1_files[1], folder1, folder2, NULL) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder1/file2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == folder1_files[1]);
+    assert(temp2 == folder2);
+    assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
+    assert(strcmp(stat.name, "file2") == 0);
+    assert(crowfs_free_blocks(&fs) - free_blocks_before == 1);
+
+    // Move folder in folder
+    assert(crowfs_move(&fs, folder2, fs.root_dnode, folder1, NULL) == CROWFS_OK);
+    assert(crowfs_open(&fs, "/folder2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open(&fs, "/folder1/folder2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(temp1 == folder2);
+    assert(temp2 == folder1);
+
+    // Replace parent which should not work
+    assert(crowfs_move(&fs, folder2, folder1, fs.root_dnode, "folder1") == CROWFS_ERR_NOT_EMPTY);
+    return 0;
+}
+
+
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        puts("Enter the test number as argument");
+        return 1;
+    }
+    long test_number = strtol(argv[1], NULL, 10);
+    switch (test_number) {
+        case 1:
+            return test_open_file();
+        case 2:
+            return test_create_folder();
+        case 3:
+            return test_stat();
+        case 4:
+            return test_read_write_file_small();
+        case 5:
+            return test_read_write_file_direct();
+        case 6:
+            return test_read_write_file_indirect();
+        case 7:
+            return test_write_file_full();
+        case 8:
+            return test_write_folder_full();
+        case 9:
+            return test_delete_file();
+        case 10:
+            return test_delete_folder();
+        case 11:
+            return test_move();
+        case 12:
+            return test_read_dir();
+        case 13:
+            return test_disk_full();
+        case 14:
+            return test_rename();
+        case 15:
+            return test_rename_move();
+        default:
+            puts("invalid test number");
+            return 1;
+    }
 }

@@ -645,18 +645,32 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat) {
     return result;
 }
 
-int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t new_parent) {
+int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t new_parent, const char *new_name) {
     int result = CROWFS_OK;
+    if (old_parent == new_parent && new_name == NULL) // no clue why would someone do this
+        return CROWFS_OK;
     union CrowFSBlock *dnode_block = fs->allocate_mem_block(),
             *file_dnode = fs->allocate_mem_block();
     TRY_IO(fs->read_block(dnode, file_dnode))
-    // Add to new parent
+    // Check same dest and source filename
+    if (old_parent == new_parent && strcmp(new_name, file_dnode->header.name) == 0) // do nothing
+        goto end;
+    // Read the parent and do some sanity checks
     TRY_IO(fs->read_block(new_parent, dnode_block))
     if (dnode_block->header.type != CROWFS_ENTITY_FOLDER) {
         result = CROWFS_ERR_ARGUMENT;
         goto end;
     }
+    // Change the name in the memory (nothing in the disk yet)
+    if (new_name != NULL) {
+        if (strlen(new_name) > CROWFS_MAX_FILENAME) {
+            result = CROWFS_ERR_LIMIT;
+            goto end;
+        }
+        strcpy(file_dnode->header.name, new_name);
+    }
     // Replace the old file if needed (which is just a delete function)
+    // NOTE: Because of the first check in this function, we cannot replace the file itself
     uint32_t to_delete_dnode = folder_lookup_name(fs, &dnode_block->folder, file_dnode->header.name,
                                                   strlen(file_dnode->header.name));
     if (to_delete_dnode != 0) {
@@ -675,7 +689,6 @@ int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t
     }
     dnode_block->folder.content_dnodes[new_dnode_index] = dnode;
     TRY_IO(fs->write_block(new_parent, dnode_block))
-
     // Remove from old parent
     TRY_IO(fs->read_block(old_parent, dnode_block))
     if (dnode_block->header.type != CROWFS_ENTITY_FOLDER) {
@@ -687,6 +700,9 @@ int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t
         goto end;
     }
     TRY_IO(fs->write_block(old_parent, dnode_block))
+    // Was this also a rename?
+    if (new_name != NULL)
+        TRY_IO(fs->write_block(dnode, file_dnode))
 
     end:
     fs->free_mem_block(dnode_block);

@@ -320,13 +320,20 @@ int crowfs_delete(struct CrowFS *fs, uint32_t dnode, uint32_t parent_dnode);
 int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat);
 
 /**
- * Moves a file or directory to another folder
+ * Moves a file or directory to another folder.
+ * This method will overwrite the file in the destination folder.
+ *
+ * If you try to replace a folder with another folder, two things can happen.
+ * Either the destination folder is free or it isn't. If the destination folder
+ * is empty, this acts like a delete of destination folder and a rename. If the
+ * destination folder is not empty, this function will return CROWFS_ERR_NOT_EMPTY
  * @param dnode The dnode to move
  * @param old_parent The old parent of dnode
  * @param new_parent The new parent of dnode
- * @return
+ * @param new_name If not NULL, is the new name of the file
+ * @return CROWFS_OK if ok. Might return CROWFS_ERR_LIMIT if the destination folder is full.
  */
-int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t new_parent);
+int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t new_parent, const char *new_name);
 
 /**
  * Counts the free blocks in a filesystem
