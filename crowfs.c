@@ -524,7 +524,7 @@ int crowfs_read(struct CrowFS *fs, uint32_t dnode, char *buf, size_t size, size_
         else
             content_block = dnode_block->file.direct_blocks[content_block_index];
         TRY_IO(fs->read_block(content_block, data_block))
-        int to_copy = MIN(CROWFS_BLOCK_SIZE - raw_data_index, to_read_bytes);
+        int to_copy = MIN((int) (CROWFS_BLOCK_SIZE - raw_data_index), to_read_bytes);
         memcpy(buf, data_block->raw_data + raw_data_index, to_copy);
         buf += to_copy;
         to_read_bytes -= to_copy;
@@ -584,10 +584,10 @@ int crowfs_delete(struct CrowFS *fs, uint32_t dnode, uint32_t parent_dnode) {
             // Delete each indirect block of file
             if (dnode_block->file.indirect_block != 0) {
                 TRY_IO(fs->read_block(dnode_block->file.indirect_block, indirect_block))
-                for (int i = 0; i < CROWFS_INDIRECT_BLOCK_COUNT && indirect_block->indirect_block[i] != 0; i++)
+                for (size_t i = 0; i < CROWFS_INDIRECT_BLOCK_COUNT && indirect_block->indirect_block[i] != 0; i++)
                     block_free(fs, indirect_block->indirect_block[i]);
             }
-        // Delete direct blocks
+            // Delete direct blocks
             for (int i = 0; i < CROWFS_DIRECT_BLOCKS && dnode_block->file.direct_blocks[i] != 0; i++)
                 block_free(fs, dnode_block->file.direct_blocks[i]);
             break;
@@ -724,7 +724,7 @@ uint32_t crowfs_free_blocks(struct CrowFS *fs) {
     for (uint32_t block = 0; block < fs->free_bitmap_blocks; block++) {
         if (fs->read_block(block + 2, bitmap) != 0)
             continue; // just skip this block
-        for (int i = 0; i < sizeof(bitmap->bitmap.bitmap) / sizeof(bitmap->bitmap.bitmap[0]); i++)
+        for (size_t i = 0; i < sizeof(bitmap->bitmap.bitmap) / sizeof(bitmap->bitmap.bitmap[0]); i++)
             free_blocks += __builtin_popcount(bitmap->bitmap.bitmap[i]);
     }
     fs->free_mem_block(bitmap);

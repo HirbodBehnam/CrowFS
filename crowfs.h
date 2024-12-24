@@ -1,7 +1,7 @@
 #pragma once
 
-#include "stddef.h"
-#include "stdint.h"
+#include <stddef.h>
+#include <stdint.h>
 
 #define CROWFS_MAGIC "CrFS"
 #define CROWFS_VERSION 1
@@ -63,9 +63,17 @@ struct __attribute__((__packed__)) CrowFSDnodeHeader {
 };
 
 /**
- * Each file dnode is like this on disk
+ * Each file dnode is like this on disk.
+ *
+ * Note to myself: I have removed packed attribute to remove
+ * the GCC warning about unaligned pointers. For now, everything is
+ * packed and aligned and if in any case a padding is issued, the
+ * static assertion will forbid the code from compiling and thus
+ * preventing runtime bugs.
+ * More info:
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96293
  */
-struct __attribute__((__packed__)) CrowFSFileBlock {
+struct CrowFSFileBlock {
     // The header of this file
     struct CrowFSDnodeHeader header;
     // Size of the file
