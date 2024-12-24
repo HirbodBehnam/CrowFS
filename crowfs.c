@@ -225,6 +225,23 @@ static int folder_remove_content(struct CrowFSDirectoryBlock *dir, uint32_t targ
     return 0;
 }
 
+/**
+ * Counts the number of 1 bits in a number. Will either use the builtin
+ * instruction, or the gcc builtin function or a simple implementation.
+ * @param a The number to count the number of bits
+ * @return Number of bits that has been one in the number.
+ */
+static uint32_t popcount(uint32_t a) {
+#ifdef __CROWOS__
+    uint32_t c = 0;
+    for (; a; ++c)
+        a &= a - 1;
+    return c;
+#else
+    return __builtin_popcount(a);
+#endif
+}
+
 int crowfs_new(struct CrowFS *fs) {
     int result = CROWFS_OK;
     // Check if all functions exists
@@ -587,7 +604,7 @@ int crowfs_delete(struct CrowFS *fs, uint32_t dnode, uint32_t parent_dnode) {
                 for (size_t i = 0; i < CROWFS_INDIRECT_BLOCK_COUNT && indirect_block->indirect_block[i] != 0; i++)
                     block_free(fs, indirect_block->indirect_block[i]);
             }
-            // Delete direct blocks
+        // Delete direct blocks
             for (int i = 0; i < CROWFS_DIRECT_BLOCKS && dnode_block->file.direct_blocks[i] != 0; i++)
                 block_free(fs, dnode_block->file.direct_blocks[i]);
             break;
@@ -725,7 +742,7 @@ uint32_t crowfs_free_blocks(struct CrowFS *fs) {
         if (fs->read_block(block + 2, bitmap) != 0)
             continue; // just skip this block
         for (size_t i = 0; i < sizeof(bitmap->bitmap.bitmap) / sizeof(bitmap->bitmap.bitmap[0]); i++)
-            free_blocks += __builtin_popcount(bitmap->bitmap.bitmap[i]);
+            free_blocks += popcount(bitmap->bitmap.bitmap[i]);
     }
     fs->free_mem_block(bitmap);
     return free_blocks;
