@@ -2,7 +2,7 @@
 #include <stdbool.h>
 
 #ifdef __CROWOS__
-#include "../kernel/lib.h"
+#include "common/lib.h"
 #else
 
 #include <string.h>
