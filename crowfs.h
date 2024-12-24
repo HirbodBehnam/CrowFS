@@ -24,7 +24,7 @@
 /**
  * Maximum number of entities (directories or files) in a directory
  */
-#define CROWFS_MAX_DIR_CONTENTS 958
+#define CROWFS_MAX_DIR_CONTENTS 957
 /**
  * Maximum file size in CrowFS
  */
@@ -83,6 +83,8 @@ struct __attribute__((__packed__)) CrowFSFileBlock {
 struct __attribute__((__packed__)) CrowFSDirectoryBlock {
     // The header of this folder
     struct CrowFSDnodeHeader header;
+    // Parent directory of this folder
+    uint32_t parent;
     // Points to the dnodes of the content of this folder.
     // The last dnode is indicated with zero block number.
     // However, there is a very edge case that this folder uses all the
@@ -129,8 +131,10 @@ struct CrowFSStat {
     char name[CROWFS_MAX_FILENAME + 1];
     //  When was this folder created? In Unix timestamp.
     int64_t creation_date;
-    // (Files only) the file size
+    // The file size or the number of entries in a directory
     uint32_t size;
+    // (Folders only) the parent of this folder
+    uint32_t parent;
     // dnode of this file/folder
     uint32_t dnode;
 };
@@ -139,7 +143,7 @@ struct CrowFSStat {
  * CrowFS is a very simple non-logged filesystem best for read mostly scenarios.
  * Maximum disk size is 2^32-1 bytes.
  * Maximum filesize is 4096*(1024+956) = 8110080 bytes ~ 8 MB
- * Maximum files in directory is 1024+956 = 1980
+ * Maximum files in directory is 957
  *
  * Most of the concepts of this file system comes from Unix Basic Filesystem (UFS).
  *
@@ -149,7 +153,7 @@ struct CrowFSStat {
  * Bootloader block which is the very first block is free to have any data in it.
  * Superblock contains information about the filesystem.
  * Free Block Bitmap contains a bitmap of free blocks. The size of this part
- * is variable and it can be inferred based on the size of the disk stored in
+ * is variable, and it can be inferred based on the size of the disk stored in
  * the superblock.
  * Root Folder block just comes after the free block bitmap and is a folder
  * that contains the files and folders in the root of the filesystem.

@@ -110,7 +110,7 @@ static uint32_t block_alloc(struct CrowFS *fs) {
         goto end;
     }
 
-    end:
+end:
     fs->free_mem_block(block);
     return allocated_dnode;
 }
@@ -145,7 +145,7 @@ static void block_free(struct CrowFS *fs, uint32_t dnode) {
     bitmap_set(&block->bitmap, dnode % CROWFS_BITSET_COVERED_BLOCKS);
     fs->write_block(dnode / 8 / CROWFS_BLOCK_SIZE + 1 + 1, block);
 
-    end:
+end:
     fs->free_mem_block(block);
 }
 
@@ -211,11 +211,14 @@ static int folder_remove_content(struct CrowFSDirectoryBlock *dir, uint32_t targ
     if (dnode_index == -1)
         return 1; // what?
     int last_index = (int) (folder_content_count(dir) - 1);
-    if (last_index == 0) { // only one content so remove it
+    if (last_index == 0) {
+        // only one content so remove it
         dir->content_dnodes[0] = 0;
-    } else if (last_index == dnode_index) { // dnode is last. Replace it
+    } else if (last_index == dnode_index) {
+        // dnode is last. Replace it
         dir->content_dnodes[last_index] = 0;
-    } else { // perform a swap
+    } else {
+        // perform a swap
         dir->content_dnodes[dnode_index] = dir->content_dnodes[last_index];
         dir->content_dnodes[last_index] = 0;
     }
@@ -230,10 +233,10 @@ int crowfs_new(struct CrowFS *fs) {
         return CROWFS_ERR_ARGUMENT;
     // Overwrite the superblock
     union CrowFSBlock *block = fs->allocate_mem_block();
-    block->superblock = (struct CrowFSSuperblock) {
-            .magic = {0}, // fill later
-            .version = CROWFS_VERSION,
-            .blocks = fs->total_blocks(),
+    block->superblock = (struct CrowFSSuperblock){
+        .magic = {0}, // fill later
+        .version = CROWFS_VERSION,
+        .blocks = fs->total_blocks(),
     };
     memcpy(block->superblock.magic, CROWFS_MAGIC, sizeof(block->superblock.magic));
     // Check if the blocks on the disk is enough
@@ -279,17 +282,18 @@ int crowfs_new(struct CrowFS *fs) {
         bitmap_clear(&block->bitmap, last_block_id);
     TRY_IO(fs->write_block(2 + fs->free_bitmap_blocks - 1, block))
     // Create the root directory
-    block->folder = (struct CrowFSDirectoryBlock) {
-            .header = (struct CrowFSDnodeHeader) {
-                    .type = CROWFS_ENTITY_FOLDER,
-                    .name = "/",
-                    .creation_date = fs->current_date(),
-            },
-            .content_dnodes = {0},
+    block->folder = (struct CrowFSDirectoryBlock){
+        .header = (struct CrowFSDnodeHeader){
+            .type = CROWFS_ENTITY_FOLDER,
+            .name = "/",
+            .creation_date = fs->current_date(),
+        },
+        .parent = fs->root_dnode,
+        .content_dnodes = {0},
     };
     TRY_IO(fs->write_block(fs->root_dnode, block))
 
-    end:
+end:
     fs->free_mem_block(block);
     return result;
 }
@@ -313,7 +317,7 @@ int crowfs_init(struct CrowFS *fs) {
             (block->superblock.blocks + CROWFS_BITSET_COVERED_BLOCKS - 1) / CROWFS_BITSET_COVERED_BLOCKS;
     fs->root_dnode = 1 + 1 + fs->free_bitmap_blocks;
 
-    end:
+end:
     fs->free_mem_block(block);
     return result;
 }
@@ -366,13 +370,14 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
                 current_dnode->folder.content_dnodes[folder_size] = *dnode;
                 *parent_dnode = current_dnode_index;
                 // Create the dnode
-                temp_dnode->header = (struct CrowFSDnodeHeader) {
-                        .creation_date = fs->current_date(),
+                temp_dnode->header = (struct CrowFSDnodeHeader){
+                    .creation_date = fs->current_date(),
                 };
                 memcpy(temp_dnode->header.name, path, next_path_size);
                 temp_dnode->header.name[next_path_size] = '\0';
                 if (flags & CROWFS_O_DIR) {
                     temp_dnode->header.type = CROWFS_ENTITY_FOLDER;
+                    temp_dnode->folder.parent = *parent_dnode;
                     memset(temp_dnode->folder.content_dnodes, 0, sizeof(temp_dnode->folder.content_dnodes));
                 } else {
                     temp_dnode->header.type = CROWFS_ENTITY_FILE;
@@ -383,7 +388,8 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
                 TRY_IO(fs->write_block(*parent_dnode, current_dnode))
                 TRY_IO(fs->write_block(*dnode, temp_dnode))
                 break;
-            } else { // well shit.
+            } else {
+                // well shit.
                 result = CROWFS_ERR_NOT_FOUND;
                 goto end;
             }
@@ -393,7 +399,8 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
             goto end;
         }
         // We have found something
-        if (path_last_part(path)) { // Is it the thing?
+        if (path_last_part(path)) {
+            // Is it the thing?
             *dnode = dnode_search_result;
             *parent_dnode = current_dnode_index;
             break;
@@ -410,7 +417,7 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
         }
     }
 
-    end:
+end:
     fs->free_mem_block(current_dnode);
     fs->free_mem_block(temp_dnode);
     return result;
@@ -423,7 +430,8 @@ int crowfs_write(struct CrowFS *fs, uint32_t dnode, const char *data, size_t siz
             *data_block = fs->allocate_mem_block(),
             *indirect_block = fs->allocate_mem_block();
     TRY_IO(fs->read_block(dnode, dnode_block))
-    if (dnode_block->header.type != CROWFS_ENTITY_FILE) { // this is a file right?
+    if (dnode_block->header.type != CROWFS_ENTITY_FILE) {
+        // this is a file right?
         result = CROWFS_ERR_ARGUMENT;
         goto end;
     }
@@ -457,7 +465,7 @@ int crowfs_write(struct CrowFS *fs, uint32_t dnode, const char *data, size_t siz
             }
             // Get from indirect block
             content_block = get_or_allocate_block(fs, &indirect_block->indirect_block[content_block_index -
-                                                                                      CROWFS_DIRECT_BLOCKS]);
+                                                      CROWFS_DIRECT_BLOCKS]);
             if (content_block == 0) {
                 result = CROWFS_ERR_FULL;
                 goto end;
@@ -486,7 +494,7 @@ int crowfs_write(struct CrowFS *fs, uint32_t dnode, const char *data, size_t siz
     dnode_block->file.size += size;
     TRY_IO(fs->write_block(dnode, dnode_block))
 
-    end:
+end:
     fs->free_mem_block(dnode_block);
     fs->free_mem_block(data_block);
     fs->free_mem_block(indirect_block);
@@ -500,7 +508,8 @@ int crowfs_read(struct CrowFS *fs, uint32_t dnode, char *buf, size_t size, size_
             *data_block = fs->allocate_mem_block(),
             *indirect_block = fs->allocate_mem_block();
     TRY_IO(fs->read_block(dnode, dnode_block))
-    if (dnode_block->header.type != CROWFS_ENTITY_FILE) { // this is a file right?
+    if (dnode_block->header.type != CROWFS_ENTITY_FILE) {
+        // this is a file right?
         result = CROWFS_ERR_ARGUMENT;
         goto end;
     }
@@ -527,7 +536,7 @@ int crowfs_read(struct CrowFS *fs, uint32_t dnode, char *buf, size_t size, size_
         read_bytes += to_copy;
     }
 
-    end:
+end:
     fs->free_mem_block(dnode_block);
     fs->free_mem_block(data_block);
     fs->free_mem_block(indirect_block);
@@ -542,7 +551,8 @@ int crowfs_read_dir(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat, 
     // Read the dnode block at first
     union CrowFSBlock *dnode_block = fs->allocate_mem_block();
     TRY_IO(fs->read_block(dnode, dnode_block))
-    if (dnode_block->header.type != CROWFS_ENTITY_FOLDER) { // this is a folder right?
+    if (dnode_block->header.type != CROWFS_ENTITY_FOLDER) {
+        // this is a folder right?
         result = CROWFS_ERR_ARGUMENT;
         goto end;
     }
@@ -559,7 +569,7 @@ int crowfs_read_dir(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat, 
     // Get the stats of the dnode
     result = crowfs_stat(fs, requested_dnode, stat);
 
-    end:
+end:
     fs->free_mem_block(dnode_block);
     return result;
 }
@@ -581,7 +591,7 @@ int crowfs_delete(struct CrowFS *fs, uint32_t dnode, uint32_t parent_dnode) {
                 for (int i = 0; i < CROWFS_INDIRECT_BLOCK_COUNT && indirect_block->indirect_block[i] != 0; i++)
                     block_free(fs, indirect_block->indirect_block[i]);
             }
-            // Delete direct blocks
+        // Delete direct blocks
             for (int i = 0; i < CROWFS_DIRECT_BLOCKS && dnode_block->file.direct_blocks[i] != 0; i++)
                 block_free(fs, dnode_block->file.direct_blocks[i]);
             break;
@@ -612,7 +622,7 @@ int crowfs_delete(struct CrowFS *fs, uint32_t dnode, uint32_t parent_dnode) {
     // Delete this dnode/block as well
     block_free(fs, dnode);
 
-    end:
+end:
     fs->free_mem_block(dnode_block);
     fs->free_mem_block(indirect_block);
     return result;
@@ -632,6 +642,7 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat) {
             stat->size = dnode_block->file.size;
             break;
         case CROWFS_ENTITY_FOLDER:
+            stat->parent = dnode_block->folder.parent;
             stat->size = folder_content_count(&dnode_block->folder);
             break;
         default:
@@ -639,7 +650,7 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat) {
             goto end;
     }
 
-    end:
+end:
     stat->dnode = dnode;
     fs->free_mem_block(dnode_block);
     return result;
@@ -704,7 +715,7 @@ int crowfs_move(struct CrowFS *fs, uint32_t dnode, uint32_t old_parent, uint32_t
     if (new_name != NULL)
         TRY_IO(fs->write_block(dnode, file_dnode))
 
-    end:
+end:
     fs->free_mem_block(dnode_block);
     fs->free_mem_block(file_dnode);
     return result;
