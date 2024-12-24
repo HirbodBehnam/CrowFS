@@ -370,19 +370,15 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
                 current_dnode->folder.content_dnodes[folder_size] = *dnode;
                 *parent_dnode = current_dnode_index;
                 // Create the dnode
-                temp_dnode->header = (struct CrowFSDnodeHeader){
-                    .creation_date = fs->current_date(),
-                };
+                memset(temp_dnode, 0, sizeof(*temp_dnode));
+                temp_dnode->header.creation_date = fs->current_date();
                 memcpy(temp_dnode->header.name, path, next_path_size);
                 temp_dnode->header.name[next_path_size] = '\0';
                 if (flags & CROWFS_O_DIR) {
                     temp_dnode->header.type = CROWFS_ENTITY_FOLDER;
                     temp_dnode->folder.parent = *parent_dnode;
-                    memset(temp_dnode->folder.content_dnodes, 0, sizeof(temp_dnode->folder.content_dnodes));
                 } else {
                     temp_dnode->header.type = CROWFS_ENTITY_FILE;
-                    temp_dnode->file.indirect_block = 0;
-                    memset(temp_dnode->file.direct_blocks, 0, sizeof(temp_dnode->file.direct_blocks));
                 }
                 // Write to disk
                 TRY_IO(fs->write_block(*parent_dnode, current_dnode))
@@ -633,6 +629,7 @@ int crowfs_stat(struct CrowFS *fs, uint32_t dnode, struct CrowFSStat *stat) {
     union CrowFSBlock *dnode_block = fs->allocate_mem_block();
     TRY_IO(fs->read_block(dnode, dnode_block))
     // Read the header
+    memset(stat, 0, sizeof(*stat));
     stat->type = dnode_block->header.type;
     memcpy(stat->name, dnode_block->header.name, sizeof(stat->name));
     stat->creation_date = dnode_block->file.header.creation_date;
