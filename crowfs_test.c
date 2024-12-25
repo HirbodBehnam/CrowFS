@@ -22,12 +22,12 @@ void std_free_mem_block(union CrowFSBlock *block) {
 }
 
 int mem_write_block(uint32_t block_index, const union CrowFSBlock *block) {
-    memcpy(memory_buffer.buffer + block_index * 4096, block, sizeof(union CrowFSBlock));
+    memcpy(memory_buffer.buffer + block_index * CROWFS_BLOCK_SIZE, block, sizeof(union CrowFSBlock));
     return 0;
 }
 
 int mem_read_block(uint32_t block_index, union CrowFSBlock *block) {
-    memcpy(block, memory_buffer.buffer + block_index * 4096, sizeof(union CrowFSBlock));
+    memcpy(block, memory_buffer.buffer + block_index * CROWFS_BLOCK_SIZE, sizeof(union CrowFSBlock));
     return 0;
 }
 

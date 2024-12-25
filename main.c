@@ -40,26 +40,153 @@ int64_t std_current_date(void) {
     return time(NULL);
 }
 
-int main(void) {
-    block_file = fopen("fs.bin", "r+b");
+int main(int argc, char *argv[]) {
+    FILE *host_file = NULL;
+    // Check arguments
+    if (argc < 3) {
+        puts("Please pass the filename and command as arguments");
+        exit(1);
+    }
+    // Open the block file
+    block_file = fopen(argv[1], "r+b");
     if (block_file == NULL) {
-        puts(strerror(errno));
+        perror("cannot open file");
         exit(1);
     }
     struct CrowFS fs = {
-            .allocate_mem_block = std_allocate_mem_block,
-            .free_mem_block = std_free_mem_block,
-            .write_block = std_write_block,
-            .read_block = std_read_block,
-            .total_blocks = std_total_blocks,
-            .current_date = std_current_date,
+        .allocate_mem_block = std_allocate_mem_block,
+        .free_mem_block = std_free_mem_block,
+        .write_block = std_write_block,
+        .read_block = std_read_block,
+        .total_blocks = std_total_blocks,
+        .current_date = std_current_date,
     };
-    crowfs_new(&fs);
-    uint32_t kir, kir_parent;
-    crowfs_open(&fs, "/kir.txt", &kir, &kir_parent, CROWFS_O_CREATE);
-    char buf[512] = "please kill me";
-    crowfs_write(&fs, kir, buf, 10, 0);
-    memset(buf, 0, sizeof(buf));
-    crowfs_read(&fs, kir, buf, sizeof(buf), 0);
+    // Check what is the command
+    int exit_code = 0;
+    if (strcmp(argv[2], "new") == 0) {
+        // Create a new filesystem
+        int result = crowfs_new(&fs);
+        if (result != CROWFS_OK) {
+            printf("cannot create the filesystem: error %d\n", result);
+            exit_code = 1;
+            goto end;
+        }
+        printf("File system created with %u blocks\n", std_total_blocks());
+    } else if (strcmp(argv[2], "copyin") == 0) {
+        // Open the filesystem
+        int result = crowfs_init(&fs);
+        if (result != CROWFS_OK) {
+            printf("cannot open the filesystem: error %d\n", result);
+            exit_code = 1;
+            goto end;
+        }
+        // Copy a file from host to the file system
+        if (argc < 5) {
+            puts("Please pass the source file and destination filename to the program");
+            exit_code = 1;
+            goto end;
+        }
+        // Open the host file
+        host_file = fopen(argv[3], "rb");
+        if (host_file == NULL) {
+            perror("cannot open host file");
+            exit_code = 1;
+            goto end;
+        }
+        // Open the file in the file system
+        uint32_t fs_file, temp;
+        result = crowfs_open(&fs, argv[4], &fs_file, &temp, CROWFS_O_CREATE);
+        if (result != CROWFS_OK) {
+            printf("cannot create the file: error %d\n", result);
+            exit_code = 1;
+            goto end;
+        }
+        // Read all the file in memory because why not
+        size_t offset = 0;
+        while (1) {
+            char buffer[512];
+            // Read a chunk
+            size_t n = fread(buffer, sizeof(char), sizeof(buffer), host_file);
+            if (n == 0 && feof(host_file)) {
+                // did we reach eof?
+                break;
+            }
+            // Write to file system
+            result = crowfs_write(&fs, fs_file, buffer, n, offset);
+            if (result != CROWFS_OK) {
+                printf("cannot write the file: error %d\n", result);
+                exit_code = 1;
+                goto end;
+            }
+            // Advance pointer
+            offset += n;
+        }
+        // Done
+        printf("Copied %zu bytes to file system\n", offset);
+    } else if (strcmp(argv[2], "copyout") == 0) {
+        // Open the filesystem
+        int result = crowfs_init(&fs);
+        if (result != CROWFS_OK) {
+            printf("cannot open the filesystem: error %d\n", result);
+            exit_code = 1;
+            goto end;
+        }
+        // Copy a file from file system to the host
+        if (argc < 5) {
+            puts("Please pass the source file and destination filename to the program");
+            exit_code = 1;
+            goto end;
+        }
+        // Open the host file
+        host_file = fopen(argv[4], "wb");
+        if (host_file == NULL) {
+            perror("cannot open host file");
+            exit_code = 1;
+            goto end;
+        }
+        // Open the file in the file system
+        uint32_t fs_file, temp;
+        result = crowfs_open(&fs, argv[3], &fs_file, &temp, 0);
+        if (result != CROWFS_OK) {
+            printf("cannot open the file: error %d\n", result);
+            exit_code = 1;
+            goto end;
+        }
+        // Read all the file in memory because why not
+        size_t offset = 0;
+        while (1) {
+            char buffer[512];
+            // Read a chunk
+            result = crowfs_read(&fs, fs_file, buffer, sizeof(buffer), offset);
+            if (result < 0) {
+                printf("cannot read the file: error %d\n", result);
+                fclose(host_file);
+                exit_code = 1;
+                goto end;
+            }
+            if (result == 0)
+                break; // EOF
+            // Write to file system
+            size_t fwrite_result = fwrite(buffer, sizeof(char), result, host_file);
+            if (fwrite_result != result) {
+                puts("short write");
+                exit_code = 1;
+                goto end;
+            }
+            // Advance pointer
+            offset += result;
+        }
+        // Done
+        printf("Copied %zu bytes from file system\n", offset);
+    } else {
+        puts("Invalid command");
+        exit_code = 1;
+        goto end;
+    }
+    // Done
+end:
+    if (host_file != NULL)
+        fclose(host_file);
     fclose(block_file);
+    return exit_code;
 }
