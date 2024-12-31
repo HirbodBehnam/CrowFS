@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,17 @@ uint32_t std_total_blocks(void) {
 
 int64_t std_current_date(void) {
     return time(NULL);
+}
+
+char file_type_to_char(uint8_t type) {
+    switch (type) {
+        case CROWFS_ENTITY_FILE:
+            return 'F';
+        case CROWFS_ENTITY_FOLDER:
+            return 'D';
+        default:
+            assert(0);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -178,6 +190,47 @@ int main(int argc, char *argv[]) {
         }
         // Done
         printf("Copied %zu bytes from file system\n", offset);
+    } else if (strcmp(argv[2], "ls") == 0) {
+        // Open the filesystem
+        int result = crowfs_init(&fs);
+        if (result != CROWFS_OK) {
+            printf("cannot open the filesystem: error %d\n", result);
+            exit_code = 1;
+            goto end;
+        }
+        // Copy a file from file system to the host
+        if (argc < 4) {
+            puts("Please pass the folder path to list to the program");
+            exit_code = 1;
+            goto end;
+        }
+        // Open the directory in the file system
+        uint32_t directory, temp;
+        result = crowfs_open(&fs, argv[3], &directory, &temp, 0);
+        if (result != CROWFS_OK) {
+            printf("cannot open the directory: error %d\n", result);
+            exit_code = 1;
+            goto end;
+        }
+        // Read each file
+        printf("Listing all files and directories in %s\n", argv[3]);
+        size_t offset = 0;
+        while (1) {
+            struct CrowFSStat stat;
+            result = crowfs_read_dir(&fs, directory, &stat, offset);
+            if (result == CROWFS_ERR_LIMIT) // end
+                break;
+            if (result != CROWFS_OK) {
+                printf("cannot read the directory: error %d\n", result);
+                exit_code = 1;
+                goto end;
+            }
+            // Print the data
+            printf("%c\t%s\t%u\t%lld\n",
+                   file_type_to_char(stat.type), stat.name, stat.size, stat.creation_date);
+            // Read next dir
+            offset++;
+        }
     } else {
         puts("Invalid command");
         exit_code = 1;

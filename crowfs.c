@@ -342,6 +342,12 @@ end:
 int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *parent_dnode, uint32_t flags) {
     if (path[0] != '/') // paths must be absolute
         return CROWFS_ERR_ARGUMENT;
+    if (strcmp(path, "/") == 0) {
+        // Asking for root. fuck the flags
+        *dnode = fs->root_dnode;
+        *parent_dnode = fs->root_dnode;
+        return CROWFS_OK;
+    }
     path++; // skip the /
     *parent_dnode = 0; // for '/' path
     int result = CROWFS_OK;
