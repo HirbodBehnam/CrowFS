@@ -368,6 +368,9 @@ int crowfs_open_relative(struct CrowFS *fs, const char *path, uint32_t relative_
     // Is this an absolute path?
     if (path[0] == '/') // just call crowfs_open_absolute
         return crowfs_open_absolute(fs, path, dnode, parent_dnode, flags);
+    // Sanity check the relative to argument to not be zero
+    if (relative_to == 0)
+        return CROWFS_ERR_ARGUMENT;
 
     *parent_dnode = relative_to;
     int result = CROWFS_OK;

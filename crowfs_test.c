@@ -758,6 +758,8 @@ int test_relative() {
     assert(opened_dnode == file[4]);
     assert(crowfs_open_relative(&fs, "../../.././folder1/folder2/file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
     assert(opened_dnode == file[4]);
+    // Error checks
+    assert(crowfs_open_relative(&fs, "../folder1/folder2/file4", 0, &opened_dnode, &temp, 0) == CROWFS_ERR_ARGUMENT);
     return 0;
 }
 
