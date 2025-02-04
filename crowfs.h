@@ -268,18 +268,33 @@ int crowfs_init(struct CrowFS *fs);
 #define CROWFS_O_DIR 0b10
 
 /**
- * Opens a file or directory
- * @param path The absolute of the file
+ * Opens a file or directory from an absolute path
+ * @param path The absolute path of the file
  * @param dnode The dnode on disk which is CrowFSFileBlock
  * @param parent_dnode The dnode of the parent folder of this file. In case of /,
  * it will return 0.
  * @param flags Flags to control the file/directory opening
- * @return CROWFS_OK or CROWFS_ERR_NOT_FOUND if the file does not exists.
+ * @return CROWFS_OK or CROWFS_ERR_NOT_FOUND if the file does not exist.
  * If CROWFS_O_CREATE is set and the file exists, CROWFS_ERR_EXISTS will
  * be returned.
  * @note To create a directory, you can fuse CROWFS_O_DIR and CROWFS_O_CREATE
  */
-int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *parent_dnode, uint32_t flags);
+int crowfs_open_absolute(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *parent_dnode, uint32_t flags);
+
+/**
+ * Opens a file or directory relative to a folder
+ * @param path The relative path of the file
+ * @param relative_to The folder's dnode to search this file relative to
+ * @param dnode The dnode on disk which is CrowFSFileBlock
+ * @param parent_dnode The dnode of the parent folder of this file. In case of /,
+ * it will return 0.
+ * @param flags Flags to control the file/directory opening
+ * @return CROWFS_OK or CROWFS_ERR_NOT_FOUND if the file does not exist.
+ * If CROWFS_O_CREATE is set and the file exists, CROWFS_ERR_EXISTS will
+ * be returned.
+ * @note To create a directory, you can fuse CROWFS_O_DIR and CROWFS_O_CREATE
+ */
+int crowfs_open_relative(struct CrowFS *fs, const char *path, uint32_t relative_to, uint32_t *dnode, uint32_t *parent_dnode, uint32_t flags);
 
 /**
  * Write to a file at the given offset

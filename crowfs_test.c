@@ -57,16 +57,16 @@ int test_open_file() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024);
     uint32_t fd, fd_parent, fd_temp;
-    assert(crowfs_open(&fs, "/hello", &fd, &fd_parent, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/hello", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/hello", &fd, &fd_parent, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/hello", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     assert(fd_parent == fs.root_dnode);
-    assert(crowfs_open(&fs, "/my file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/rng", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/rng", &fd_temp, &fd_parent, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/my file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/rng", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/rng", &fd_temp, &fd_parent, 0) == CROWFS_OK);
     assert(fd == fd_temp);
     assert(fd_parent == fs.root_dnode);
-    assert(crowfs_open(&fs, "/non existing folder/file", &fd, &fd_parent, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/rng/rng", &fd, &fd_parent, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/non existing folder/file", &fd, &fd_parent, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/rng/rng", &fd, &fd_parent, 0) == CROWFS_ERR_NOT_FOUND);
     return 0;
 }
 
@@ -74,33 +74,35 @@ int test_create_folder() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024);
     uint32_t fd, fd_parent, fd_temp;
-    assert(crowfs_open(&fs, "/hello", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/hello", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
     assert(fd_parent == fs.root_dnode);
     fd_temp = fd;
-    assert(crowfs_open(&fs, "/hello/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/hello/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     assert(fd_parent == fd_temp);
-    assert(crowfs_open(&fs, "/hello/world/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/hello/world", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(fd_parent == fd_temp);
-    fd_temp = fd;
-    assert(crowfs_open(&fs, "/hello/world/sup bro", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/hello/world/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/hello/world", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
     assert(fd_parent == fd_temp);
     fd_temp = fd;
-    assert(crowfs_open(&fs, "/hello/world/sup bro/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(
+        crowfs_open_absolute(&fs, "/hello/world/sup bro", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
+        CROWFS_OK);
     assert(fd_parent == fd_temp);
-    assert(crowfs_open(&fs, "/another dir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    fd_temp = fd;
+    assert(crowfs_open_absolute(&fs, "/hello/world/sup bro/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(fd_parent == fd_temp);
+    assert(crowfs_open_absolute(&fs, "/another dir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
     assert(fd_parent == fs.root_dnode);
     fd_temp = fd;
-    assert(crowfs_open(&fs, "/another dir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/another dir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
     assert(fd_parent == fs.root_dnode);
     assert(fd == fd_temp);
-    assert(crowfs_open(&fs, "/another dir/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/another dir/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     assert(fd_parent == fd_temp);
-    assert(crowfs_open(&fs, "/not found/directory/welp", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
+    assert(crowfs_open_absolute(&fs, "/not found/directory/welp", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
         CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/hello/file/bro/file", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
+    assert(crowfs_open_absolute(&fs, "/hello/file/bro/file", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
         CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/hello/file/nope", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
+    assert(crowfs_open_absolute(&fs, "/hello/file/nope", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
         CROWFS_ERR_NOT_FOUND);
     return 0;
 }
@@ -115,14 +117,16 @@ int test_stat() {
     mem_fs_init(&fs, 1024 * 1024);
     const char dummy_buffer[4096 * 16] = {0};
     uint32_t folder1, folder2, file, folder1_file, folder2_file1, folder2_file2, folder2_file3, folder1_folder3, temp;
-    assert(crowfs_open(&fs, "/folder1", &folder1, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2", &folder2, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/file", &file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file", &folder1_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file1", &folder2_file1, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file2", &folder2_file2, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file3", &folder2_file3, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/folder3", &folder1_folder3, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &folder1, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2", &folder2, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file", &file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file", &folder1_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file1", &folder2_file1, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &folder2_file2, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file3", &folder2_file3, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(
+        crowfs_open_absolute(&fs, "/folder1/folder3", &folder1_folder3, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) ==
+        CROWFS_OK);
     assert(crowfs_write(&fs, folder1_file, dummy_buffer, 1234, 0) == CROWFS_OK);
     assert(crowfs_write(&fs, folder2_file1, dummy_buffer, 10, 0) == CROWFS_OK);
     assert(crowfs_write(&fs, folder2_file2, dummy_buffer, sizeof(dummy_buffer), 0) == CROWFS_OK);
@@ -213,7 +217,7 @@ int test_read_write_file_small() {
     const char to_write_buffer[] = "Hello world!";
     const size_t final_file_size = 2 * (sizeof(to_write_buffer) - 1);
     uint32_t fd, fd_parent;
-    assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     assert(crowfs_write(&fs, fd, to_write_buffer, sizeof(to_write_buffer) - 1, 0) == CROWFS_OK);
     assert(crowfs_write(&fs, fd, to_write_buffer, sizeof(to_write_buffer) - 1, sizeof(to_write_buffer) - 1) ==
         CROWFS_OK);
@@ -237,7 +241,7 @@ int test_read_write_file_small() {
     assert(crowfs_read(&fs, fd, read_buffer, sizeof(read_buffer), final_file_size) == 0);
     assert(crowfs_read(&fs, fd, read_buffer, sizeof(read_buffer), final_file_size + 1) == 0);
     // Check errors
-    assert(crowfs_open(&fs, "/folder", &fd, &fd_parent, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder", &fd, &fd_parent, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
     assert(crowfs_read(&fs, fd, read_buffer, sizeof(read_buffer), 0) == CROWFS_ERR_ARGUMENT);
     assert(crowfs_write(&fs, fd, read_buffer, sizeof(read_buffer), 0) == CROWFS_ERR_ARGUMENT);
     return 0;
@@ -247,7 +251,7 @@ int test_read_write_file_direct() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024 * 16);
     uint32_t fd, fd_parent;
-    assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     char block_buffer[256];
     for (int i = 0; i < sizeof(block_buffer); i++)
         block_buffer[i] = (char) i;
@@ -267,7 +271,7 @@ int test_read_write_file_indirect() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024 * 16);
     uint32_t fd, fd_parent;
-    assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     char block_buffer[256];
     for (int i = 0; i < sizeof(block_buffer); i++)
         block_buffer[i] = (char) i;
@@ -289,7 +293,7 @@ int test_write_file_full() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024 * 16);
     uint32_t fd, fd_parent;
-    assert(crowfs_open(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     char block_buffer[256];
     for (int i = 0; i < sizeof(block_buffer); i++)
         block_buffer[i] = (char) i;
@@ -321,21 +325,23 @@ int test_write_folder_full() {
     for (int i = 0; i < CROWFS_MAX_DIR_CONTENTS; i++) {
         char name_buffer[16];
         sprintf(name_buffer, "/file%d", i);
-        assert(crowfs_open(&fs, name_buffer, &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+        assert(crowfs_open_absolute(&fs, name_buffer, &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     }
-    assert(crowfs_open(&fs, "/abkir", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_LIMIT);
-    assert(crowfs_open(&fs, "/abkir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_ERR_LIMIT);
+    assert(crowfs_open_absolute(&fs, "/abkir", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_LIMIT);
+    assert(crowfs_open_absolute(&fs, "/abkir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_ERR_LIMIT);
     // Delete last file and create a folder
     assert(crowfs_delete(&fs, fd, fs.root_dnode) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
     // Fill that folder
     for (int i = 0; i < CROWFS_MAX_DIR_CONTENTS; i++) {
         char name_buffer[32];
         sprintf(name_buffer, "/folder/file%d", i);
-        assert(crowfs_open(&fs, name_buffer, &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
+        assert(crowfs_open_absolute(&fs, name_buffer, &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_OK);
     }
-    assert(crowfs_open(&fs, "/folder/abkir", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_LIMIT);
-    assert(crowfs_open(&fs, "/folder/abkir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_ERR_LIMIT);
+    assert(crowfs_open_absolute(&fs, "/folder/abkir", &fd, &fd_parent, CROWFS_O_CREATE) == CROWFS_ERR_LIMIT);
+    assert(
+        crowfs_open_absolute(&fs, "/folder/abkir", &fd, &fd_parent, CROWFS_O_CREATE | CROWFS_O_DIR) ==
+        CROWFS_ERR_LIMIT);
     return 0;
 }
 
@@ -343,13 +349,13 @@ int test_delete_file() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024);
     uint32_t folder1, folder2, file, folder1_file, folder2_file1, folder2_file2, folder2_file3, temp;
-    assert(crowfs_open(&fs, "/folder1", &folder1, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2", &folder2, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/file", &file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file", &folder1_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file1", &folder2_file1, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file2", &folder2_file2, &temp, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file3", &folder2_file3, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &folder1, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2", &folder2, &temp, CROWFS_O_DIR | CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file", &file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file", &folder1_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file1", &folder2_file1, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &folder2_file2, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file3", &folder2_file3, &temp, CROWFS_O_CREATE) == CROWFS_OK);
     // Delete all files
     assert(crowfs_delete(&fs, file, fs.root_dnode) == CROWFS_OK);
     assert(crowfs_delete(&fs, folder1_file, folder1) == CROWFS_OK);
@@ -357,7 +363,7 @@ int test_delete_file() {
     assert(crowfs_delete(&fs, folder2_file2, folder2) == CROWFS_OK);
     assert(crowfs_delete(&fs, folder2_file3, folder2) == CROWFS_OK);
     // Errors
-    assert(crowfs_open(&fs, "/folder1/file", &folder1_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file", &folder1_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
     assert(crowfs_delete(&fs, folder1_file, folder2_file1) == CROWFS_ERR_ARGUMENT);
     assert(crowfs_delete(&fs, folder1_file, folder2) == CROWFS_ERR_ARGUMENT);
     return 0;
@@ -367,11 +373,13 @@ int test_delete_folder() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024);
     uint32_t folder, folder_dir, folder_dir_help, folder_dir2, folder_dir2_file, temp;
-    assert(crowfs_open(&fs, "/folder", &folder, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder/dir", &folder_dir, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder/dir/help", &folder_dir_help, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder/dir2", &folder_dir2, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder/dir2/file", &folder_dir2_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder", &folder, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder/dir", &folder_dir, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(
+        crowfs_open_absolute(&fs, "/folder/dir/help", &folder_dir_help, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) ==
+        CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder/dir2", &folder_dir2, &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder/dir2/file", &folder_dir2_file, &temp, CROWFS_O_CREATE) == CROWFS_OK);
     // Delete each folder
     assert(crowfs_delete(&fs, folder, fs.root_dnode) == CROWFS_ERR_NOT_EMPTY);
     assert(crowfs_delete(&fs, folder_dir, folder) == CROWFS_ERR_NOT_EMPTY);
@@ -394,39 +402,39 @@ int test_move() {
     struct CrowFS fs;
     mem_fs_init(&fs, 1024 * 1024);
     uint32_t folder1, folder2, folder3, file1, file2, file3, temp1, temp2, new_file1;
-    assert(crowfs_open(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder3", &folder3, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file1", &file1, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file2", &file2, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder3/file3", &file3, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder3", &folder3, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &file1, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &file2, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder3/file3", &file3, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
 
     // Move one file
     assert(crowfs_move(&fs, file1, folder1, folder2, NULL) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == file1);
     assert(temp2 == folder2);
     assert(crowfs_move(&fs, file1, folder2, folder1, NULL) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == file1);
     assert(temp2 == folder1);
 
     // Move folder
     assert(crowfs_move(&fs, folder2, fs.root_dnode, folder3, NULL) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder3/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder3/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == file2);
     assert(temp2 == folder2);
-    assert(crowfs_open(&fs, "/folder3/folder2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder3/folder2", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == folder2);
     assert(temp2 == folder3);
 
     // Replace file
-    assert(crowfs_open(&fs, "/file1", &temp1, &temp2, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file1", &temp1, &temp2, CROWFS_O_CREATE) == CROWFS_OK);
     assert(crowfs_move(&fs, temp1, fs.root_dnode, folder1, NULL) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file1", &new_file1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &new_file1, &temp2, 0) == CROWFS_OK);
     assert(temp2 == folder1);
     assert(new_file1 != file1);
     return 0;
@@ -438,23 +446,24 @@ int test_read_dir() {
 #define FILE_COUNT 10
     uint32_t folder1, folder2, folder3, temp1, folder1_files[FILE_COUNT], folder2_files[FILE_COUNT], folder3_files[
         FILE_COUNT];
-    assert(crowfs_open(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/folder3", &folder3, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(
+        crowfs_open_absolute(&fs, "/folder1/folder3", &folder3, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
     for (int i = 0; i < FILE_COUNT; i++) {
         char name[32];
         sprintf(name, "/folder1/%d", i);
-        assert(crowfs_open(&fs, name, &folder1_files[i], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+        assert(crowfs_open_absolute(&fs, name, &folder1_files[i], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
     }
     for (int i = 0; i < FILE_COUNT; i++) {
         char name[32];
         sprintf(name, "/folder2/%d", i);
-        assert(crowfs_open(&fs, name, &folder2_files[i], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+        assert(crowfs_open_absolute(&fs, name, &folder2_files[i], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
     }
     for (int i = 0; i < FILE_COUNT; i++) {
         char name[32];
         sprintf(name, "/folder1/folder3/%d", i);
-        assert(crowfs_open(&fs, name, &folder3_files[i], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+        assert(crowfs_open_absolute(&fs, name, &folder3_files[i], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
     }
     // Probe root
     bool seen_files[FILE_COUNT] = {0};
@@ -562,19 +571,19 @@ int test_disk_full() {
     for (uint32_t i = 0; i < free_blocks; i++) {
         char name[16];
         sprintf(name, "/%u", i);
-        assert(crowfs_open(&fs, name, &file, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+        assert(crowfs_open_absolute(&fs, name, &file, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
     }
-    assert(crowfs_open(&fs, "/full", &temp2, &temp1, CROWFS_O_CREATE) == CROWFS_ERR_FULL);
+    assert(crowfs_open_absolute(&fs, "/full", &temp2, &temp1, CROWFS_O_CREATE) == CROWFS_ERR_FULL);
     assert(crowfs_write(&fs, file, block_buffer, sizeof(block_buffer), 0) == CROWFS_ERR_FULL);
     assert(crowfs_stat(&fs, file, &stat) == CROWFS_OK);
     assert(stat.size == 0);
     // Write to file to fill the disk
     crowfs_new(&fs);
-    assert(crowfs_open(&fs, "/file", &file, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file", &file, &temp1, CROWFS_O_CREATE) == CROWFS_OK);
     free_blocks = crowfs_free_blocks(&fs);
     for (uint32_t i = 0; i < free_blocks; i++)
         assert(crowfs_write(&fs, file, block_buffer, sizeof(block_buffer), i * CROWFS_BLOCK_SIZE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/full", &temp2, &temp1, CROWFS_O_CREATE) == CROWFS_ERR_FULL);
+    assert(crowfs_open_absolute(&fs, "/full", &temp2, &temp1, CROWFS_O_CREATE) == CROWFS_ERR_FULL);
     assert(crowfs_write(&fs, file, block_buffer, sizeof(block_buffer), CROWFS_BLOCK_SIZE * free_blocks) ==
         CROWFS_ERR_FULL);
     assert(crowfs_stat(&fs, file, &stat) == CROWFS_OK);
@@ -587,17 +596,17 @@ int test_rename() {
     mem_fs_init(&fs, 1024 * 1024);
     struct CrowFSStat stat;
     uint32_t folder1, folder2, folder1_files[2], folder2_files[2], temp1, temp2;
-    assert(crowfs_open(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file1", &folder1_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file2", &folder1_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file1", &folder2_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file2", &folder2_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &folder1_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file2", &folder1_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file1", &folder2_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &folder2_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
 
     // Rename file
     assert(crowfs_move(&fs, folder1_files[0], folder1, folder1, "new_file") == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder1/new_file", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder1/new_file", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == folder1_files[0]);
     assert(temp2 == folder1);
     assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
@@ -606,8 +615,8 @@ int test_rename() {
     // Replace file
     uint32_t free_blocks_before = crowfs_free_blocks(&fs);
     assert(crowfs_move(&fs, folder2_files[0], folder2, folder2, "file2") == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == folder2_files[0]);
     assert(temp2 == folder2);
     assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
@@ -625,8 +634,8 @@ int test_rename() {
     assert(crowfs_delete(&fs, folder2_files[0], folder2) == CROWFS_OK);
     free_blocks_before = crowfs_free_blocks(&fs);
     assert(crowfs_move(&fs, folder1, fs.root_dnode, fs.root_dnode, "folder2") == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder2", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == folder1);
     assert(temp2 == fs.root_dnode);
     assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
@@ -640,17 +649,17 @@ int test_rename_move() {
     mem_fs_init(&fs, 1024 * 1024);
     struct CrowFSStat stat;
     uint32_t folder1, folder2, folder1_files[2], folder2_files[2], temp1, temp2;
-    assert(crowfs_open(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file1", &folder1_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file2", &folder1_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file1", &folder2_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2/file2", &folder2_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &folder1, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2", &folder2, &temp1, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &folder1_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file2", &folder1_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file1", &folder2_files[0], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &folder2_files[1], &temp1, CROWFS_O_CREATE) == CROWFS_OK);
 
     // Move as new file
     assert(crowfs_move(&fs, folder1_files[0], folder1, folder2, "new_file") == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder2/new_file", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file1", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder2/new_file", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == folder1_files[0]);
     assert(temp2 == folder2);
     assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
@@ -659,8 +668,8 @@ int test_rename_move() {
     // Move and replace
     uint32_t free_blocks_before = crowfs_free_blocks(&fs);
     assert(crowfs_move(&fs, folder1_files[1], folder1, folder2, NULL) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder1/file2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder2/file2", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == folder1_files[1]);
     assert(temp2 == folder2);
     assert(crowfs_stat(&fs, temp1, &stat) == CROWFS_OK);
@@ -669,8 +678,8 @@ int test_rename_move() {
 
     // Move folder in folder
     assert(crowfs_move(&fs, folder2, fs.root_dnode, folder1, NULL) == CROWFS_OK);
-    assert(crowfs_open(&fs, "/folder2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
-    assert(crowfs_open(&fs, "/folder1/folder2", &temp1, &temp2, 0) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder2", &temp1, &temp2, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_absolute(&fs, "/folder1/folder2", &temp1, &temp2, 0) == CROWFS_OK);
     assert(temp1 == folder2);
     assert(temp2 == folder1);
 
@@ -679,6 +688,78 @@ int test_rename_move() {
     return 0;
 }
 
+int test_relative() {
+    struct CrowFS fs;
+    mem_fs_init(&fs, 1024 * 1024);
+    uint32_t folder[3], file[5], temp, opened_dnode;
+    assert(crowfs_open_absolute(&fs, "/folder0", &folder[0], &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1", &folder[1], &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(
+        crowfs_open_absolute(&fs, "/folder1/folder2", &folder[2], &temp, CROWFS_O_CREATE | CROWFS_O_DIR) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file0", &file[0], &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/file1", &file[1], &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder0/file2", &file[2], &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/file3", &file[3], &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    assert(crowfs_open_absolute(&fs, "/folder1/folder2/file4", &file[4], &temp, CROWFS_O_CREATE) == CROWFS_OK);
+    // Open files again with absolute path but with relative function
+    assert(crowfs_open_relative(&fs, "/folder0", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[0]);
+    assert(crowfs_open_relative(&fs, "/folder1", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[1]);
+    assert(crowfs_open_relative(&fs, "/folder1/folder2", folder[2], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[2]);
+    assert(crowfs_open_relative(&fs, "/file0", folder[1], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[0]);
+    assert(crowfs_open_relative(&fs, "/file1", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[1]);
+    assert(crowfs_open_relative(&fs, "/folder0/file2", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[2]);
+    assert(crowfs_open_relative(&fs, "/folder1/file3", 0, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[3]);
+    assert(crowfs_open_relative(&fs, "/folder1/folder2/file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[4]);
+    // Open the files in relative path to root
+    assert(crowfs_open_relative(&fs, "folder0", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[0]);
+    assert(crowfs_open_relative(&fs, "folder1", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[1]);
+    assert(crowfs_open_relative(&fs, "./folder1/folder2", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[2]);
+    assert(crowfs_open_relative(&fs, "./file0", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[0]);
+    assert(crowfs_open_relative(&fs, "file1", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[1]);
+    assert(crowfs_open_relative(&fs, "folder0/file2", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[2]);
+    assert(crowfs_open_relative(&fs, "folder1/file3", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[3]);
+    assert(crowfs_open_relative(&fs, "folder1/folder2/file4", fs.root_dnode, &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[4]);
+    // Open files relative to folders
+    assert(crowfs_open_relative(&fs, "folder2", folder[1], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[2]);
+    assert(crowfs_open_relative(&fs, "./folder2", folder[1], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == folder[2]);
+    assert(crowfs_open_relative(&fs, "file2", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[2]);
+    assert(crowfs_open_relative(&fs, "file3", folder[1], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[3]);
+    assert(crowfs_open_relative(&fs, "folder2/file4", folder[1], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[4]);
+    assert(crowfs_open_relative(&fs, "file4", folder[2], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[4]);
+    // Not found files
+    assert(crowfs_open_relative(&fs, "folder2", folder[0], &opened_dnode, &temp, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_relative(&fs, "folder2", folder[2], &opened_dnode, &temp, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_relative(&fs, "file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_ERR_NOT_FOUND);
+    assert(crowfs_open_relative(&fs, "file4", folder[1], &opened_dnode, &temp, 0) == CROWFS_ERR_NOT_FOUND);
+    // Traverse up directories
+    assert(crowfs_open_relative(&fs, "../folder1/folder2/file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[4]);
+    assert(crowfs_open_relative(&fs, "../../.././folder1/folder2/file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(opened_dnode == file[4]);
+    return 0;
+}
 
 int main(int argc, char **argv) {
     if (argc != 2) {
@@ -717,6 +798,8 @@ int main(int argc, char **argv) {
             return test_rename();
         case 15:
             return test_rename_move();
+        case 16:
+            return test_relative();
         default:
             puts("invalid test number");
             return 1;

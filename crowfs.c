@@ -242,6 +242,16 @@ static uint32_t popcount(uint32_t a) {
 #endif
 }
 
+/**
+ * Checks if a string has a prefix or not.
+ * @param str The string to check if it has a prefix or not.
+ * @param pre The prefix to see if string has
+ * @return True if it has the prefix otherwise false
+ */
+bool string_prefix(const char *str, const char *pre) {
+    return strncmp(pre, str, strlen(pre)) == 0;
+}
+
 int crowfs_new(struct CrowFS *fs) {
     int result = CROWFS_OK;
     // Check if all functions exists
@@ -339,7 +349,7 @@ end:
     return result;
 }
 
-int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *parent_dnode, uint32_t flags) {
+int crowfs_open_absolute(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *parent_dnode, uint32_t flags) {
     if (path[0] != '/') // paths must be absolute
         return CROWFS_ERR_ARGUMENT;
     if (strcmp(path, "/") == 0) {
@@ -349,11 +359,55 @@ int crowfs_open(struct CrowFS *fs, const char *path, uint32_t *dnode, uint32_t *
         return CROWFS_OK;
     }
     path++; // skip the /
-    *parent_dnode = 0; // for '/' path
+    return crowfs_open_relative(fs, path, fs->root_dnode, dnode, parent_dnode, flags);
+}
+
+
+int crowfs_open_relative(struct CrowFS *fs, const char *path, uint32_t relative_to, uint32_t *dnode,
+                         uint32_t *parent_dnode, uint32_t flags) {
+    // Is this an absolute path?
+    if (path[0] == '/') // just call crowfs_open_absolute
+        return crowfs_open_absolute(fs, path, dnode, parent_dnode, flags);
+
+    *parent_dnode = relative_to;
     int result = CROWFS_OK;
     union CrowFSBlock *current_dnode = fs->allocate_mem_block(),
             *temp_dnode = fs->allocate_mem_block();
-    uint32_t current_dnode_index = fs->root_dnode;
+    // Relative to must be folder
+    TRY_IO(fs->read_block(relative_to, current_dnode))
+    // Check . and ..
+    while (1) {
+        // Is this pointing to the current directory?
+        if (string_prefix(path, "./")) {
+            // We are looking in current directory so just skip the ./
+            path += 2;
+            continue;
+        }
+        if (string_prefix(path, "../")) {
+            // Move one directory up
+            TRY_IO(fs->read_block(relative_to, current_dnode))
+            // Are we at root?
+            if (current_dnode->folder.parent != 0) {
+                // Not yet, go up
+                relative_to = current_dnode->folder.parent;
+            }
+            path += 3;
+            continue;
+        }
+        // None of above, bail out
+        break;
+    }
+
+    // Is the path empty? This means that we should return the current relative to as the dnode
+    if (path[0] == '\0' || strcmp(path, ".") == 0) {
+        *dnode = relative_to;
+        TRY_IO(fs->read_block(relative_to, current_dnode))
+        *parent_dnode = current_dnode->folder.parent;
+        goto end;
+    }
+
+    // Traverse the file system
+    uint32_t current_dnode_index = relative_to;
     TRY_IO(fs->read_block(current_dnode_index, current_dnode))
     // Traverse the file system
     while (true) {

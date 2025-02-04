@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
         }
         // Open the file in the file system
         uint32_t fs_file, temp;
-        result = crowfs_open(&fs, argv[4], &fs_file, &temp, CROWFS_O_CREATE);
+        result = crowfs_open_absolute(&fs, argv[4], &fs_file, &temp, CROWFS_O_CREATE);
         if (result != CROWFS_OK) {
             printf("cannot create the file: error %d\n", result);
             exit_code = 1;
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
         }
         // Open the file in the file system
         uint32_t fs_file, temp;
-        result = crowfs_open(&fs, argv[3], &fs_file, &temp, 0);
+        result = crowfs_open_absolute(&fs, argv[3], &fs_file, &temp, 0);
         if (result != CROWFS_OK) {
             printf("cannot open the file: error %d\n", result);
             exit_code = 1;
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
         }
         // Open the directory in the file system
         uint32_t directory, temp;
-        result = crowfs_open(&fs, argv[3], &directory, &temp, 0);
+        result = crowfs_open_absolute(&fs, argv[3], &directory, &temp, 0);
         if (result != CROWFS_OK) {
             printf("cannot open the directory: error %d\n", result);
             exit_code = 1;
