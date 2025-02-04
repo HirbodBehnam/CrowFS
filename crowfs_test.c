@@ -756,8 +756,18 @@ int test_relative() {
     // Traverse up directories
     assert(crowfs_open_relative(&fs, "../folder1/folder2/file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
     assert(opened_dnode == file[4]);
-    assert(crowfs_open_relative(&fs, "../../.././folder1/folder2/file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
+    assert(
+        crowfs_open_relative(&fs, "../../.././folder1/folder2/file4", folder[0], &opened_dnode, &temp, 0) == CROWFS_OK);
     assert(opened_dnode == file[4]);
+    assert(crowfs_open_relative(&fs, "..", folder[2], &opened_dnode, &temp, CROWFS_O_DIR) == CROWFS_OK);
+    assert(opened_dnode == folder[1]);
+    assert(crowfs_open_relative(&fs, "../..", folder[2], &opened_dnode, &temp, CROWFS_O_DIR) == CROWFS_OK);
+    assert(opened_dnode == fs.root_dnode);
+    // Self open
+    assert(crowfs_open_relative(&fs, ".", folder[2], &opened_dnode, &temp, CROWFS_O_DIR) == CROWFS_OK);
+    assert(opened_dnode == folder[2]);
+    assert(crowfs_open_relative(&fs, ".", fs.root_dnode, &opened_dnode, &temp, CROWFS_O_DIR) == CROWFS_OK);
+    assert(opened_dnode == fs.root_dnode);
     // Error checks
     assert(crowfs_open_relative(&fs, "../folder1/folder2/file4", 0, &opened_dnode, &temp, 0) == CROWFS_ERR_ARGUMENT);
     return 0;

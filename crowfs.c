@@ -362,7 +362,6 @@ int crowfs_open_absolute(struct CrowFS *fs, const char *path, uint32_t *dnode, u
     return crowfs_open_relative(fs, path, fs->root_dnode, dnode, parent_dnode, flags);
 }
 
-
 int crowfs_open_relative(struct CrowFS *fs, const char *path, uint32_t relative_to, uint32_t *dnode,
                          uint32_t *parent_dnode, uint32_t flags) {
     // Is this an absolute path?
@@ -396,6 +395,18 @@ int crowfs_open_relative(struct CrowFS *fs, const char *path, uint32_t relative_
             }
             path += 3;
             continue;
+        }
+        // Last .. in the path. Just return the dnode of the folder above
+        if (strcmp(path, "..") == 0) {
+            // Move one directory up
+            TRY_IO(fs->read_block(relative_to, current_dnode))
+            // Are we at root?
+            if (current_dnode->folder.parent != 0) {
+                // Not yet, go up
+                relative_to = current_dnode->folder.parent;
+            }
+            path += 2;
+            break; // end of path
         }
         // None of above, bail out
         break;
